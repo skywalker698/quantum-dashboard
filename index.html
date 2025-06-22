@@ -1,117 +1,136 @@
+<!-- index.html: Quantum AI Dashboard with Forecast Simulation -->
 <!DOCTYPE html>
 <html lang="th">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quantum AI Forecast Dashboard</title>
   <meta name="theme-color" content="#0f172a">
-  <title>Quantum Sugar Dashboard</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body { font-family: 'Prompt', sans-serif; background-color: #f8fafc; }
-    .container { max-width: 1300px; margin-top: 40px; margin-bottom: 80px; }
-    .card, .chart-container { background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); padding: 24px; margin-bottom: 24px; }
-    .navbar { background-color: #0f172a; }
-    .navbar-brand, .nav-link { color: #fff !important; }
-    footer { background: #0f172a; color: #fff; padding: 10px; text-align: center; position: fixed; bottom: 0; width: 100%; }
+    body { font-family: 'Prompt', sans-serif; background-color: #f9fafb; }
+    .container { max-width: 1300px; margin-top: 2rem; }
+    .chart-container, .table-container { background: white; border-radius: 1rem; box-shadow: 0 4px 24px rgba(0,0,0,0.05); padding: 2rem; margin-bottom: 2rem; }
+    .btn-forecast { float: right; margin-bottom: 1rem; }
+    footer { background-color: #0f172a; color: white; padding: 1rem; text-align: center; }
   </style>
 </head>
 <body>
 
-<nav class="navbar navbar-expand-lg shadow-sm">
-  <div class="container">
-    <a class="navbar-brand" href="#">🏭 Quantum Sugar AI</a>
-    <ul class="navbar-nav ms-auto">
-      <li class="nav-item"><a class="nav-link" href="#">สรุป</a></li>
-      <li class="nav-item"><a class="nav-link" href="#">กราฟ</a></li>
-      <li class="nav-item"><a class="nav-link" href="#">ตาราง</a></li>
-    </ul>
-  </div>
-</nav>
-
 <div class="container">
-  <div class="row text-center">
-    <div class="col-md-3"><div class="card"><h5>รายรับรวม</h5><h3 id="totalRevenue">-</h3></div></div>
-    <div class="col-md-3"><div class="card"><h5>กำไรรวม</h5><h3 id="totalProfit">-</h3></div></div>
-    <div class="col-md-3"><div class="card"><h5>ปริมาณอ้อย</h5><h3 id="totalCane">-</h3></div></div>
-    <div class="col-md-3"><div class="card"><h5>ROI เฉลี่ย</h5><h3 id="avgROI">-</h3></div></div>
-  </div>
+  <h1 class="text-center mb-4">📊 Quantum AI Dashboard with Forecasting</h1>
 
   <div class="chart-container">
-    <h4 class="mb-4 text-center">📈 แนวโน้มผลประกอบการย้อนหลัง 10 ปี</h4>
-    <canvas id="trendChart" height="100"></canvas>
+    <h4>แนวโน้มรายปี (10 ปี ย้อนหลัง + คาดการณ์ปี 2569)</h4>
+    <canvas id="forecastChart" height="100"></canvas>
+    <button class="btn btn-primary btn-sm btn-forecast" onclick="toggleScenario()">🎯 ดู AI Forecast Simulation</button>
   </div>
 
-  <div class="chart-container">
-    <h4 class="mb-4 text-center">📊 รายละเอียดข้อมูล</h4>
-    <table class="table table-bordered table-striped">
+  <div class="table-container">
+    <h4 class="mb-3">สถิติย้อนหลังพร้อมค่าพยากรณ์</h4>
+    <table class="table table-striped">
       <thead class="table-dark">
         <tr>
-          <th>ปี</th><th>รายรับ</th><th>ต้นทุน</th><th>กำไร</th><th>ปริมาณอ้อย</th><th>Yield</th><th>ROI (%)</th>
+          <th>ปี</th><th>ปริมาณอ้อย (ตัน)</th><th>Yield</th><th>กำไร</th><th>ROI (%)</th><th>Scenario</th>
         </tr>
       </thead>
-      <tbody id="tableBody"></tbody>
+      <tbody id="forecastTable"></tbody>
     </table>
   </div>
 </div>
 
 <footer>
-  ⚙️ Quantum Sugar AI | พยากรณ์เชิงลึกด้วยสถิติและควอนตัม | 2024
+  🤖 Quantum AI | Forecast System using Probabilistic + Quantum Concepts
 </footer>
 
 <script>
-const api = "https://script.google.com/macros/s/AKfycbzrVLLUSjKiq7CDpX6H1EwYzXmo_hRiqRKMiextzxUidywAY_kfNXeyHUl8nDJG6KIyzw/exec";
+const baseData = [
+  { year: 2560, cane: 980000, yield: 116.0, profit: 412000000 },
+  { year: 2561, cane: 1010000, yield: 117.0, profit: 428000000 },
+  { year: 2562, cane: 1040000, yield: 117.8, profit: 444000000 },
+  { year: 2563, cane: 1070000, yield: 118.5, profit: 460000000 },
+  { year: 2564, cane: 1100000, yield: 119.0, profit: 476000000 },
+  { year: 2565, cane: 1130000, yield: 119.5, profit: 500000000 },
+  { year: 2566, cane: 1170000, yield: 120.0, profit: 530000000 },
+  { year: 2567, cane: 1300000, yield: 120.8, profit: 572000000 }
+];
 
-async function fetchData() {
-  const res = await fetch(api);
-  const data = await res.json();
+let forecastScenarios = {
+  neutral: { cane: 1320000, yield: 122.0, profit: 592000000 },
+  optimistic: { cane: 1350000, yield: 123.0, profit: 610000000 },
+  pessimistic: { cane: 1290000, yield: 121.0, profit: 580000000 }
+};
 
-  // สรุปยอดรวม
-  const totalRevenue = data.reduce((sum, d) => sum + parseFloat(d.revenue), 0);
-  const totalProfit = data.reduce((sum, d) => sum + (parseFloat(d.revenue) - parseFloat(d.cost)), 0);
-  const totalCane = data.reduce((sum, d) => sum + parseFloat(d.totalCane || 0), 0);
-  const avgROI = (data.reduce((sum, d) => sum + parseFloat(d.roi || 0), 0) / data.length).toFixed(2);
+let activeScenario = "neutral";
 
-  document.getElementById("totalRevenue").innerText = totalRevenue.toLocaleString() + " ฿";
-  document.getElementById("totalProfit").innerText = totalProfit.toLocaleString() + " ฿";
-  document.getElementById("totalCane").innerText = totalCane.toLocaleString() + " ตัน";
-  document.getElementById("avgROI").innerText = avgROI + " %";
+function calculateROI(profit, cane) {
+  const revenue = profit * 1.5;
+  return ((profit / revenue) * 100).toFixed(2);
+}
 
-  // กราฟแนวโน้ม
-  const years = data.map(d => d.year);
-  const profits = data.map(d => parseFloat(d.revenue) - parseFloat(d.cost));
-  const rois = data.map(d => parseFloat(d.roi));
-  const yields = data.map(d => parseFloat(d.yield));
-  const canes = data.map(d => parseFloat(d.totalCane));
+function renderTableAndChart() {
+  const table = document.getElementById("forecastTable");
+  table.innerHTML = "";
+  const data = [...baseData];
+  const scenario = forecastScenarios[activeScenario];
+  data.push({ year: 2569, ...scenario });
 
-  new Chart(document.getElementById('trendChart').getContext('2d'), {
-    type: 'line',
+  const years = [], caneData = [], yieldData = [], profitData = [], roiData = [];
+
+  data.forEach((row, i) => {
+    const roi = calculateROI(row.profit, row.cane);
+    const scenarioLabel = (i === data.length - 1) ? activeScenario.toUpperCase() : "-";
+
+    table.innerHTML += `
+      <tr>
+        <td>${row.year}</td>
+        <td>${row.cane.toLocaleString()}</td>
+        <td>${row.yield}</td>
+        <td>${row.profit.toLocaleString()}</td>
+        <td>${roi}</td>
+        <td>${scenarioLabel}</td>
+      </tr>
+    `;
+
+    years.push(row.year);
+    caneData.push(row.cane);
+    yieldData.push(row.yield);
+    profitData.push(row.profit);
+    roiData.push(parseFloat(roi));
+  });
+
+  const ctx = document.getElementById("forecastChart").getContext("2d");
+  if (window.forecastChart) window.forecastChart.destroy();
+  window.forecastChart = new Chart(ctx, {
+    type: "line",
     data: {
       labels: years,
       datasets: [
-        { label: 'กำไร (บาท)', data: profits, borderColor: '#10b981', fill: false },
-        { label: 'Yield', data: yields, borderColor: '#3b82f6', fill: false },
-        { label: 'ปริมาณอ้อย', data: canes, borderColor: '#f59e0b', fill: false },
-        { label: 'ROI (%)', data: rois, borderColor: '#ef4444', fill: false },
+        { label: "ปริมาณอ้อย (ตัน)", data: caneData, borderColor: "#16a34a", tension: 0.3, fill: false },
+        { label: "Yield (น้ำตาล)", data: yieldData, borderColor: "#3b82f6", tension: 0.3, fill: false },
+        { label: "กำไร (บาท)", data: profitData, borderColor: "#f59e0b", tension: 0.3, fill: false },
+        { label: "ROI (%)", data: roiData, borderColor: "#ef4444", tension: 0.3, fill: false }
       ]
     },
-    options: { responsive: true, scales: { y: { beginAtZero: false } } }
-  });
-
-  // เติมตาราง
-  const tbody = document.getElementById("tableBody");
-  data.forEach(d => {
-    const profit = parseFloat(d.revenue) - parseFloat(d.cost);
-    tbody.innerHTML += `
-      <tr>
-        <td>${d.year}</td><td>${(+d.revenue).toLocaleString()}</td><td>${(+d.cost).toLocaleString()}</td>
-        <td>${profit.toLocaleString()}</td><td>${(+d.totalCane).toLocaleString()}</td>
-        <td>${d.yield}</td><td>${parseFloat(d.roi).toFixed(2)}</td>
-      </tr>`;
+    options: {
+      responsive: true,
+      plugins: {
+        title: { display: true, text: `แนวโน้มข้อมูล พร้อมจำลอง (${activeScenario.toUpperCase()})` }
+      },
+      scales: { y: { beginAtZero: false } }
+    }
   });
 }
 
-window.addEventListener("DOMContentLoaded", fetchData);
+function toggleScenario() {
+  if (activeScenario === "neutral") activeScenario = "optimistic";
+  else if (activeScenario === "optimistic") activeScenario = "pessimistic";
+  else activeScenario = "neutral";
+  renderTableAndChart();
+}
+
+window.addEventListener("DOMContentLoaded", renderTableAndChart);
 </script>
 </body>
 </html>
