@@ -1,98 +1,132 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Quantum Sugar AI Dashboard</title>
-
-  <!-- Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600&display=swap" rel="stylesheet" />
-
-  <!-- Bootstrap & DataTables CSS -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
-  <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet" />
-
-  <!-- Chart.js -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0f172a">
+  <title>Quantum Sugar Dashboard</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
   <style>
-    body {
-      font-family: 'Prompt', sans-serif;
-      background: #f7fafc;
-      color: #1e293b;
-      position: relative;
-      overflow-x: hidden;
-    }
-    /* ภาพพื้นหลัง Quantum + AI Robot */
-    body::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: url('https://images.unsplash.com/photo-1581092334188-6f6670ac2a47?auto=format&fit=crop&w=1470&q=80') no-repeat center;
-      background-size: cover;
-      opacity: 0.05;
-      z-index: -1;
-    }
+  @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;500;700&display=swap');
 
-    .navbar {
-      background-color: #e0f2f1;
-    }
-    .navbar-brand, .nav-link {
-      color: #00695c !important;
-      font-weight: 600;
-    }
+  body {
+    font-family: 'Prompt', sans-serif;
+    background-color: #f1f5f9;
+    background-image: url('https://cdn.pixabay.com/photo/2023/01/12/14/42/ai-7712467_1280.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    background-position: bottom right;
+    color: #1e293b;
+  }
 
-    .card {
-      background: #ffffffcc;
-      border-radius: 12px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-      color: #1e293b;
-      transition: transform 0.2s;
-    }
-    .card:hover { transform: scale(1.02); }
+  .container {
+    max-width: 1300px;
+    margin-top: 40px;
+    margin-bottom: 80px;
+  }
 
-    .chart-container {
-      background: #ffffffcc;
-      border-radius: 12px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-      padding: 24px;
-    }
+  .card, .chart-container {
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 16px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
+    padding: 24px;
+    margin-bottom: 24px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
 
-    .btn-ai {
-      background-color: #26a69a;
-      color: white;
-      border: none;
-      transition: transform 0.2s;
-    }
-    .btn-ai:hover {
-      background-color: #00897b;
-      transform: scale(1.05);
-    }
+  .card:hover {
+    transform: scale(1.02);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
+  }
 
-    footer {
-      background: #e0f2f1;
-      color: #00695c;
-      padding: 16px;
-      text-align: center;
-    }
+  .navbar {
+    background: linear-gradient(90deg, #0f172a, #334155);
+  }
 
-    /* ปรับ DataTable */
-    table.dataTable tbody tr {
-      background: #ffffffcc;
-    }
-    .dataTables_wrapper .dataTables_filter input,
-    .dataTables_wrapper .dataTables_length select {
-      border-radius: 8px;
-      border: 1px solid #cbd5e1;
-    }
-  </style>
+  .navbar-brand, .nav-link {
+    color: #ffffff !important;
+    font-weight: 500;
+  }
+
+  .btn-primary {
+    background: linear-gradient(90deg, #06b6d4, #3b82f6);
+    border: none;
+    border-radius: 10px;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    transition: transform 0.2s;
+  }
+
+  .btn-primary:hover {
+    transform: scale(1.05);
+    background: linear-gradient(90deg, #3b82f6, #06b6d4);
+  }
+
+  footer {
+    background: #0f172a;
+    color: #ffffff;
+    padding: 16px;
+    text-align: center;
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    font-size: 0.9rem;
+  }
+
+  h5 {
+    font-weight: 600;
+    color: #334155;
+  }
+
+  h3 {
+    font-weight: bold;
+    color: #0f766e;
+  }
+
+  table thead {
+    background-color: #cbd5e1;
+    color: #1e293b;
+  }
+
+  #forecastChart {
+    display: none;
+  }
+
+  /* ปุ่มติดต่อ */
+  .contact-btn {
+    position: fixed;
+    bottom: 90px;
+    right: 24px;
+    background: #10b981;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 50px;
+    font-size: 0.95rem;
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+    cursor: pointer;
+    z-index: 999;
+    transition: all 0.3s ease;
+  }
+
+  .contact-btn:hover {
+    background: #059669;
+    transform: scale(1.05);
+  }
+
+  .contact-btn::before {
+    content: '📞 ';
+  }
+</style>
+
 </head>
 <body>
 
-<nav class="navbar navbar-expand-lg shadow-sm mb-4">
+<nav class="navbar navbar-expand-lg shadow-sm">
   <div class="container">
-    <a class="navbar-brand" href="#">🧠 Quantum Sugar AI</a>
+    <a class="navbar-brand" href="#">🏭 Quantum Sugar AI</a>
     <ul class="navbar-nav ms-auto">
       <li class="nav-item"><a class="nav-link" href="#">สรุป</a></li>
       <li class="nav-item"><a class="nav-link" href="#">กราฟ</a></li>
@@ -102,37 +136,31 @@
 </nav>
 
 <div class="container">
-
-  <!-- Summary Metrics -->
-  <div class="row text-center mb-4">
-    <div class="col-md-3"><div class="card p-4"><h5>รายรับรวม</h5><h3 id="totalRevenue">-</h3></div></div>
-    <div class="col-md-3"><div class="card p-4"><h5>กำไรรวม</h5><h3 id="totalProfit">-</h3></div></div>
-    <div class="col-md-3"><div class="card p-4"><h5>ปริมาณอ้อย</h5><h3 id="totalCane">-</h3></div></div>
-    <div class="col-md-3"><div class="card p-4"><h5>ROI เฉลี่ย</h5><h3 id="avgROI">-</h3></div></div>
+  <div class="row text-center">
+    <div class="col-md-3"><div class="card"><h5>รายรับรวม</h5><h3 id="totalRevenue">-</h3></div></div>
+    <div class="col-md-3"><div class="card"><h5>กำไรรวม</h5><h3 id="totalProfit">-</h3></div></div>
+    <div class="col-md-3"><div class="card"><h5>ปริมาณอ้อย</h5><h3 id="totalCane">-</h3></div></div>
+    <div class="col-md-3"><div class="card"><h5>ROI เฉลี่ย</h5><h3 id="avgROI">-</h3></div></div>
   </div>
 
-  <!-- ปุ่ม Forecast -->
   <div class="text-end mb-3">
-    <button id="toggleForecast" class="btn btn-ai">🎯 พยากรณ์โดย AI</button>
+    <button id="toggleForecast" class="btn btn-primary">🎯 ดู AI Forecast Simulation</button>
   </div>
 
-  <!-- Trend Chart -->
-  <div class="chart-container mb-4">
-    <h4 class="text-center mb-4">📈 แนวโน้มผลประกอบการย้อนหลัง 10 ปี</h4>
+  <div class="chart-container">
+    <h4 class="mb-4 text-center">📈 แนวโน้มผลประกอบการย้อนหลัง 10 ปี</h4>
     <canvas id="trendChart" height="100"></canvas>
   </div>
 
-  <!-- Forecast Chart -->
-  <div class="chart-container mb-4" id="forecastContainer" style="display:none;">
-    <h4 class="text-center mb-4">🔮 ผลการพยากรณ์โดย Ai จากหลายทฤษฏี</h4>
+  <div class="chart-container" id="forecastContainer">
+    <h4 class="mb-4 text-center">🔮 AI Forecast Simulation</h4>
     <canvas id="forecastChart" height="100"></canvas>
   </div>
 
-  <!-- DataTable -->
   <div class="chart-container">
-    <h4 class="text-center mb-4">📊 รายละเอียดข้อมูล</h4>
-    <table id="dataTable" class="table table-striped table-hover">
-      <thead class="table-light">
+    <h4 class="mb-4 text-center">📊 รายละเอียดข้อมูล</h4>
+    <table class="table table-bordered table-striped">
+      <thead class="table-dark">
         <tr>
           <th>ปี</th><th>รายรับ</th><th>ต้นทุน</th><th>กำไร</th><th>ปริมาณอ้อย</th><th>Yield</th><th>ROI (%)</th>
         </tr>
@@ -140,39 +168,24 @@
       <tbody id="tableBody"></tbody>
     </table>
   </div>
-
-  <!-- Contact Button -->
-  <div class="text-center mt-4">
-    <a href="tel:0902969884" class="btn btn-ai btn-lg">
-      ติดต่อ Wittawat.k $kywalker
-    </a>
-  </div>
-
 </div>
 
-<footer class="mt-5">
-  ⚙️ Quantum Sugar AI | พัฒนาโดยทีม Data Science | Powered by AI & Quantum Insight | © 2024
+<footer>
+  ⚙️ Quantum Sugar AI | พยากรณ์เชิงลึกด้วยสถิติและควอนตัม | 2024
 </footer>
-
-<!-- Scripts -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
-<script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
 
 <script>
 const api = "https://script.google.com/macros/s/AKfycbzrVLLUSjKiq7CDpX6H1EwYzXmo_hRiqRKMiextzxUidywAY_kfNXeyHUl8nDJG6KIyzw/exec";
 let forecastVisible = false;
 
-// ดึงข้อมูลและสร้างตาราง + แผนภูมิ
 async function fetchData() {
   const res = await fetch(api);
   const data = await res.json();
 
-  const totalRevenue = data.reduce((s, d) => s + +d.revenue, 0);
-  const totalProfit = data.reduce((s, d) => s + (+d.revenue - +d.cost), 0);
-  const totalCane = data.reduce((s, d) => s + +d.totalCane, 0);
-  const avgROI = (data.reduce((s, d)=> s + +d.roi, 0) / data.length).toFixed(2);
+  const totalRevenue = data.reduce((sum, d) => sum + parseFloat(d.revenue), 0);
+  const totalProfit = data.reduce((sum, d) => sum + (parseFloat(d.revenue) - parseFloat(d.cost)), 0);
+  const totalCane = data.reduce((sum, d) => sum + parseFloat(d.totalCane || 0), 0);
+  const avgROI = (data.reduce((sum, d) => sum + parseFloat(d.roi || 0), 0) / data.length).toFixed(2);
 
   document.getElementById("totalRevenue").innerText = totalRevenue.toLocaleString() + " ฿";
   document.getElementById("totalProfit").innerText = totalProfit.toLocaleString() + " ฿";
@@ -180,83 +193,71 @@ async function fetchData() {
   document.getElementById("avgROI").innerText = avgROI + " %";
 
   const years = data.map(d => d.year);
-  const profits = data.map(d => +d.revenue - +d.cost);
-  const yields = data.map(d => +d.yield);
-  const canes = data.map(d => +d.totalCane);
-  const rois = data.map(d => +d.roi);
+  const profits = data.map(d => parseFloat(d.revenue) - parseFloat(d.cost));
+  const rois = data.map(d => parseFloat(d.roi));
+  const yields = data.map(d => parseFloat(d.yield));
+  const canes = data.map(d => parseFloat(d.totalCane));
 
-  // Trend Chart
   new Chart(document.getElementById('trendChart').getContext('2d'), {
-    type:'line',
-    data:{
+    type: 'line',
+    data: {
       labels: years,
-      datasets:[
-        {label:'กำไร (฿)', data: profits, borderColor:'#42a5f5', fill:false},
-        {label:'Yield', data: yields, borderColor:'#8e24aa', fill:false},
-        {label:'ปริมาณอ้อย', data: canes, borderColor:'#ffa726', fill:false},
-        {label:'ROI (%)', data: rois, borderColor:'#ef5350', fill:false},
+      datasets: [
+        { label: 'กำไร (บาท)', data: profits, borderColor: '#10b981', fill: false },
+        { label: 'Yield', data: yields, borderColor: '#3b82f6', fill: false },
+        { label: 'ปริมาณอ้อย', data: canes, borderColor: '#f59e0b', fill: false },
+        { label: 'ROI (%)', data: rois, borderColor: '#ef4444', fill: false },
       ]
     },
-    options:{responsive:true, scales:{y:{beginAtZero:true}}}
+    options: { responsive: true, scales: { y: { beginAtZero: false } } }
   });
 
-  // Forecast Chart (ตัวอย่าง)
-  const futureYears = ["2568","2569","2570"];
-  const forecastData = {
-    rev: [1600000000,1720000000,1800000000],
-    cost: [1080000000,1150000000,1200000000],
-    yield: [121.5,122.8,124.0],
-    cane: [1350000,1380000,1420000],
-    roi: [48.1,49.5,50.2]
-  };
-  const profitF = forecastData.rev.map((r,i)=>r - forecastData.cost[i]);
-  new Chart(document.getElementById('forecastChart').getContext('2d'), {
-    type:'line',
-    data:{
-      labels: futureYears,
-      datasets:[
-        {label:'กำไร (฿)', data: profitF, borderColor:'#29b6f6', fill:false},
-        {label:'Yield', data: forecastData.yield, borderColor:'#7e57c2', fill:false},
-        {label:'ปริมาณอ้อย', data: forecastData.cane, borderColor:'#ffa726', fill:false},
-        {label:'ROI (%)', data: forecastData.roi, borderColor:'#ef5350', fill:false},
-      ]
-    },
-    options:{responsive:true, scales:{y:{beginAtZero:true}}}
-  });
-
-  // สร้างแถว DataTable
+  const tbody = document.getElementById("tableBody");
   data.forEach(d => {
-    const p = +d.revenue - +d.cost;
-    $('#tableBody').append(`
+    const profit = parseFloat(d.revenue) - parseFloat(d.cost);
+    tbody.innerHTML += 
       <tr>
-        <td>${d.year}</td>
-        <td>${(+d.revenue).toLocaleString()}</td>
-        <td>${(+d.cost).toLocaleString()}</td>
-        <td>${p.toLocaleString()}</td>
-        <td>${(+d.totalCane).toLocaleString()}</td>
-        <td>${d.yield}</td>
-        <td>${(+d.roi).toFixed(2)}</td>
-      </tr>`);
+        <td>${d.year}</td><td>${(+d.revenue).toLocaleString()}</td><td>${(+d.cost).toLocaleString()}</td>
+        <td>${profit.toLocaleString()}</td><td>${(+d.totalCane).toLocaleString()}</td>
+        <td>${d.yield}</td><td>${parseFloat(d.roi).toFixed(2)}</td>
+      </tr>;
   });
 
-  $('#dataTable').DataTable({
-    paging: true,
-    searching: true,
-    lengthMenu: [5,10,25],
-    language: {
-      search: "ค้นหา:",
-      lengthMenu: "แสดง _MENU_ แถว",
-      paginate: { "previous": "ก่อนหน้า", "next": "ถัดไป" }
-    }
+  // AI Forecast Simulation (dummy for now)
+  const futureYears = ["2568", "2569", "2570"];
+  const forecastData = {
+    revenue: [1600000000, 1720000000, 1800000000],
+    cost: [1080000000, 1150000000, 1200000000],
+    cane: [1350000, 1380000, 1420000],
+    yield: [121.5, 122.8, 124.0],
+    roi: [48.1, 49.5, 50.2],
+  };
+  const forecastCtx = document.getElementById("forecastChart").getContext("2d");
+  const forecastChart = new Chart(forecastCtx, {
+    type: 'line',
+    data: {
+      labels: futureYears,
+      datasets: [
+        { label: 'กำไร (บาท)', data: forecastData.revenue.map((r, i) => r - forecastData.cost[i]), borderColor: '#0ea5e9', fill: false },
+        { label: 'Yield', data: forecastData.yield, borderColor: '#6366f1', fill: false },
+        { label: 'ปริมาณอ้อย', data: forecastData.cane, borderColor: '#f59e0b', fill: false },
+        { label: 'ROI (%)', data: forecastData.roi, borderColor: '#dc2626', fill: false },
+      ]
+    },
+    options: { responsive: true, scales: { y: { beginAtZero: false } } }
   });
 
-  $('#toggleForecast').click(() => {
+  document.getElementById("toggleForecast").addEventListener("click", () => {
     forecastVisible = !forecastVisible;
-    $('#forecastContainer').toggle(forecastVisible);
+    document.getElementById("forecastChart").style.display = forecastVisible ? 'block' : 'none';
   });
 }
 
-$(document).ready(fetchData);
+window.addEventListener("DOMContentLoaded", fetchData);
 </script>
+<!-- ปุ่มติดต่อ -->
+<button class="contact-btn" onclick="window.location.href='Email:doriyakii01@gmail.com'">
+  $kywalker Wittawat.k
+</button>
 </body>
 </html>
