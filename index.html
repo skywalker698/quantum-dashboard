@@ -214,12 +214,12 @@ async function fetchData() {
   const tbody = document.getElementById("tableBody");
   data.forEach(d => {
     const profit = parseFloat(d.revenue) - parseFloat(d.cost);
-    tbody.innerHTML += 
-      <tr>
-        <td>${d.year}</td><td>${(+d.revenue).toLocaleString()}</td><td>${(+d.cost).toLocaleString()}</td>
-        <td>${profit.toLocaleString()}</td><td>${(+d.totalCane).toLocaleString()}</td>
-        <td>${d.yield}</td><td>${parseFloat(d.roi).toFixed(2)}</td>
-      </tr>;
+    tbody.innerHTML += `
+  <tr>
+    <td>${d.year}</td><td>${(+d.revenue).toLocaleString()}</td><td>${(+d.cost).toLocaleString()}</td>
+    <td>${profit.toLocaleString()}</td><td>${(+d.totalCane).toLocaleString()}</td>
+    <td>${d.yield}</td><td>${parseFloat(d.roi).toFixed(2)}</td>
+  </tr>`;
   });
 
   // AI Forecast Simulation (dummy for now)
@@ -253,10 +253,11 @@ async function fetchData() {
 }
 
 window.addEventListener("DOMContentLoaded", fetchData);
+
+</script>
 <!-- ปุ่มติดต่อ -->
 <button class="contact-btn" onclick="window.location.href='tel:0902969884'">
   วิทวัส ค้ำชู 0902969884
 </button>
-</script>
 </body>
 </html>
