@@ -4,85 +4,50 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#0f172a">
- <link rel="manifest" href="https://script.google.com/macros/s/AKfycbzrVLLUSjKiq7CDpX6H1EwYzXmo_hRiqRKMiextzxUidywAY_kfNXeyHUl8nDJG6KIyzw/exec?path=manifest.json">
-
-
-  <title>Quantum Profit Advisor</title>
-
-  <!-- CSS -->
+  <title>Quantum Sugar Dashboard</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.5/css/dataTables.bootstrap5.min.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
   <style>
     body { font-family: 'Prompt', sans-serif; background-color: #f8fafc; }
-    .container { max-width: 1300px; margin-top: 40px; margin-bottom: 60px; }
-    .chart-container, .table-container, .summary-cards { background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); padding: 24px; margin-bottom: 24px; }
-    footer { position: fixed; bottom: 0; width: 100%; background: #0f172a; color: #fff; text-align: center; padding: 10px; }
+    .container { max-width: 1300px; margin-top: 40px; margin-bottom: 80px; }
+    .card, .chart-container { background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); padding: 24px; margin-bottom: 24px; }
     .navbar { background-color: #0f172a; }
     .navbar-brand, .nav-link { color: #fff !important; }
-    .card { border: none; text-align: center; }
-    .card h5 { font-size: 18px; color: #6b7280; }
-    .card h3 { font-size: 28px; color: #0f172a; font-weight: bold; }
+    footer { background: #0f172a; color: #fff; padding: 10px; text-align: center; position: fixed; bottom: 0; width: 100%; }
   </style>
 </head>
 <body>
 
-<!-- Navbar -->
 <nav class="navbar navbar-expand-lg shadow-sm">
   <div class="container">
-    <a class="navbar-brand" href="#">📊 Quantum Dashboard</a>
+    <a class="navbar-brand" href="#">🏭 Quantum Sugar AI</a>
     <ul class="navbar-nav ms-auto">
-      <li class="nav-item"><a class="nav-link" href="#">หน้าแรก</a></li>
+      <li class="nav-item"><a class="nav-link" href="#">สรุป</a></li>
       <li class="nav-item"><a class="nav-link" href="#">กราฟ</a></li>
-      <li class="nav-item"><a class="nav-link" href="#">ตารางข้อมูล</a></li>
+      <li class="nav-item"><a class="nav-link" href="#">ตาราง</a></li>
     </ul>
   </div>
 </nav>
 
-<!-- Content -->
 <div class="container">
-
-  <!-- Summary Cards -->
-  <div class="row summary-cards text-center">
-    <div class="col-md-4 mb-3">
-      <div class="card p-3">
-        <h5>💰 รายรับรวม</h5>
-        <h3 id="totalRevenue">-</h3>
-      </div>
-    </div>
-    <div class="col-md-4 mb-3">
-      <div class="card p-3">
-        <h5>💸 กำไรรวม</h5>
-        <h3 id="totalProfit">-</h3>
-      </div>
-    </div>
-    <div class="col-md-4 mb-3">
-      <div class="card p-3">
-        <h5>📈 ROI เฉลี่ย</h5>
-        <h3 id="avgRoi">-</h3>
-      </div>
-    </div>
+  <div class="row text-center">
+    <div class="col-md-3"><div class="card"><h5>รายรับรวม</h5><h3 id="totalRevenue">-</h3></div></div>
+    <div class="col-md-3"><div class="card"><h5>กำไรรวม</h5><h3 id="totalProfit">-</h3></div></div>
+    <div class="col-md-3"><div class="card"><h5>ปริมาณอ้อย</h5><h3 id="totalCane">-</h3></div></div>
+    <div class="col-md-3"><div class="card"><h5>ROI เฉลี่ย</h5><h3 id="avgROI">-</h3></div></div>
   </div>
 
-  <!-- Chart -->
   <div class="chart-container">
-    <h2 class="text-center mb-4">📊 เปรียบเทียบ ROI ของแต่ละกิจกรรม</h2>
-    <canvas id="roiChart" height="120"></canvas>
+    <h4 class="mb-4 text-center">📈 แนวโน้มผลประกอบการย้อนหลัง 10 ปี</h4>
+    <canvas id="trendChart" height="100"></canvas>
   </div>
 
-  <!-- Table -->
-  <div class="table-container">
-    <h2 class="text-center mb-4">📋 รายละเอียดธุรกิจ</h2>
-    <table id="businessTable" class="table table-striped" style="width:100%">
+  <div class="chart-container">
+    <h4 class="mb-4 text-center">📊 รายละเอียดข้อมูล</h4>
+    <table class="table table-bordered table-striped">
       <thead class="table-dark">
         <tr>
-          <th>ชื่อกิจกรรม</th>
-          <th>ประเภท</th>
-          <th>รายรับ (บาท)</th>
-          <th>รายจ่าย (บาท)</th>
-          <th>กำไร (บาท)</th>
-          <th>ROI (%)</th>
+          <th>ปี</th><th>รายรับ</th><th>ต้นทุน</th><th>กำไร</th><th>ปริมาณอ้อย</th><th>Yield</th><th>ROI (%)</th>
         </tr>
       </thead>
       <tbody id="tableBody"></tbody>
@@ -90,86 +55,63 @@
   </div>
 </div>
 
-<!-- Footer -->
 <footer>
-  ⚙️ Quantum Advisor | AI Dashboard with Google Sheet & PWA
+  ⚙️ Quantum Sugar AI | พยากรณ์เชิงลึกด้วยสถิติและควอนตัม | 2024
 </footer>
 
-<!-- Scripts -->
-<script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.5/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.5/js/dataTables.bootstrap5.min.js"></script>
-
 <script>
-  const apiURL = "https://script.google.com/macros/s/AKfycbzrVLLUSjKiq7CDpX6H1EwYzXmo_hRiqRKMiextzxUidywAY_kfNXeyHUl8nDJG6KIyzw/exec";
+const api = "https://script.google.com/macros/s/AKfycbzrVLLUSjKiq7CDpX6H1EwYzXmo_hRiqRKMiextzxUidywAY_kfNXeyHUl8nDJG6KIyzw/exec";
 
-  async function fetchData() {
-    const res = await fetch(apiURL);
-    const data = await res.json();
+async function fetchData() {
+  const res = await fetch(api);
+  const data = await res.json();
 
-    // ===== Summary Data =====
-    const totalRevenue = data.reduce((sum, item) => sum + parseFloat(item.revenue), 0);
-    const totalProfit = data.reduce((sum, item) => sum + (parseFloat(item.revenue) - parseFloat(item.cost)), 0);
-    const avgROI = (data.reduce((sum, item) => sum + parseFloat(item.roi), 0) / data.length).toFixed(2);
+  // สรุปยอดรวม
+  const totalRevenue = data.reduce((sum, d) => sum + parseFloat(d.revenue), 0);
+  const totalProfit = data.reduce((sum, d) => sum + (parseFloat(d.revenue) - parseFloat(d.cost)), 0);
+  const totalCane = data.reduce((sum, d) => sum + parseFloat(d.totalCane || 0), 0);
+  const avgROI = (data.reduce((sum, d) => sum + parseFloat(d.roi || 0), 0) / data.length).toFixed(2);
 
-    document.getElementById("totalRevenue").textContent = totalRevenue.toLocaleString() + " ฿";
-    document.getElementById("totalProfit").textContent = totalProfit.toLocaleString() + " ฿";
-    document.getElementById("avgRoi").textContent = avgROI + " %";
+  document.getElementById("totalRevenue").innerText = totalRevenue.toLocaleString() + " ฿";
+  document.getElementById("totalProfit").innerText = totalProfit.toLocaleString() + " ฿";
+  document.getElementById("totalCane").innerText = totalCane.toLocaleString() + " ตัน";
+  document.getElementById("avgROI").innerText = avgROI + " %";
 
-    // ===== Chart =====
-    const labels = data.map(item => item.activity);
-    const roi = data.map(item => parseFloat(item.roi));
+  // กราฟแนวโน้ม
+  const years = data.map(d => d.year);
+  const profits = data.map(d => parseFloat(d.revenue) - parseFloat(d.cost));
+  const rois = data.map(d => parseFloat(d.roi));
+  const yields = data.map(d => parseFloat(d.yield));
+  const canes = data.map(d => parseFloat(d.totalCane));
 
-    const ctx = document.getElementById('roiChart').getContext('2d');
-    new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [{
-          label: 'ROI (%)',
-          data: roi,
-          backgroundColor: '#3b82f6',
-        }]
-      },
-      options: {
-        responsive: true,
-        scales: {
-          y: { beginAtZero: true }
-        }
-      }
-    });
+  new Chart(document.getElementById('trendChart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: years,
+      datasets: [
+        { label: 'กำไร (บาท)', data: profits, borderColor: '#10b981', fill: false },
+        { label: 'Yield', data: yields, borderColor: '#3b82f6', fill: false },
+        { label: 'ปริมาณอ้อย', data: canes, borderColor: '#f59e0b', fill: false },
+        { label: 'ROI (%)', data: rois, borderColor: '#ef4444', fill: false },
+      ]
+    },
+    options: { responsive: true, scales: { y: { beginAtZero: false } } }
+  });
 
-    // ===== Table =====
-    const tbody = document.getElementById("tableBody");
-    data.forEach(row => {
-      const revenue = parseFloat(row.revenue);
-      const cost = parseFloat(row.cost);
-      const profit = revenue - cost;
-      const roi = revenue ? ((profit / revenue) * 100).toFixed(2) : 0;
+  // เติมตาราง
+  const tbody = document.getElementById("tableBody");
+  data.forEach(d => {
+    const profit = parseFloat(d.revenue) - parseFloat(d.cost);
+    tbody.innerHTML += `
+      <tr>
+        <td>${d.year}</td><td>${(+d.revenue).toLocaleString()}</td><td>${(+d.cost).toLocaleString()}</td>
+        <td>${profit.toLocaleString()}</td><td>${(+d.totalCane).toLocaleString()}</td>
+        <td>${d.yield}</td><td>${parseFloat(d.roi).toFixed(2)}</td>
+      </tr>`;
+  });
+}
 
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${row.activity}</td>
-        <td>${row.type}</td>
-        <td>${revenue.toLocaleString()}</td>
-        <td>${cost.toLocaleString()}</td>
-        <td>${profit.toLocaleString()}</td>
-        <td>${roi}</td>
-      `;
-      tbody.appendChild(tr);
-    });
-
-    $('#businessTable').DataTable();
-  }
-
-  window.addEventListener('DOMContentLoaded', fetchData);
-
-  // PWA Service Worker
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register("https://script.google.com/macros/s/AKfycbzrVLLUSjKiq7CDpX6H1EwYzXmo_hRiqRKMiextzxUidywAY_kfNXeyHUl8nDJG6KIyzw/exec?path=service-worker.js")
-      .then(() => console.log("✅ Service Worker registered"))
-      .catch(err => console.error("❌ Service Worker failed", err));
-  }
+window.addEventListener("DOMContentLoaded", fetchData);
 </script>
 </body>
 </html>
