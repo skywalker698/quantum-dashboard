@@ -430,30 +430,24 @@
         let torchEnabled = false;
         let recentScans = [];
 
-        // Code 39 encoding: 9 elements (5 bars + 4 spaces), alternating black-white
-        // Pattern format: "BWBWBWBWB" where 0=narrow, 1=wide
-        const code39Encoding = {
-            '0': '101001101101', '1': '110100101011', '2': '101100101011',
-            '3': '110110010101', '4': '101001101011', '5': '110100110101',
-            '6': '101100110101', '7': '101001011011', '8': '110100101101',
-            '9': '101100101101', 'A': '110101001011', 'B': '101101001011',
-            'C': '110110100101', 'D': '101011001011', 'E': '110101100101',
-            'F': '101101100101', 'G': '101010011011', 'H': '110101001101',
-            'I': '101101001101', 'J': '101011001101', 'K': '110101010011',
-            'L': '101101010011', 'M': '110110101001', 'N': '101011010011',
-            'O': '110101101001', 'P': '101101101001', 'Q': '101010110011',
-            'R': '110101011001', 'S': '101101011001', 'T': '101011011001',
-            'U': '110010101011', 'V': '100110101011', 'W': '110011010101',
-            'X': '100101101011', 'Y': '110010110101', 'Z': '100110110101',
-            '-': '100101011011', '.': '110010101101', ' ': '100110101101',
-            '*': '100101101101'  // Start/Stop
+        // Code 39 encoding (from original working version)
+        // Pattern: 12-bit representing bar widths (0=narrow, 1=wide)
+        const code39Map = {
+            '100101101101': '0', '101101001011': '1', '100110101011': '2',
+            '101011010011': '3', '100101101011': '4', '101101010011': '5',
+            '100110110011': '6', '100101011011': '7', '101101001101': '8',
+            '100110100111': '9', '101010010011': 'A', '100101100101': 'B',
+            '101010011001': 'C', '100101011001': 'D', '101011001001': 'E',
+            '100110100101': 'F', '100101001101': 'G', '101010010101': 'H',
+            '100101010011': 'I', '101010100011': 'J', '101001010011': 'K',
+            '100101100110': 'L', '101001010110': 'M', '100101010110': 'N',
+            '101001101001': 'O', '100101101001': 'P', '101010110001': 'Q',
+            '100101011010': 'R', '101001010101': 'S', '100101101010': 'T',
+            '110010010011': 'U', '110010100101': 'V', '110010101001': 'W',
+            '110001010101': 'X', '110010010101': 'Y', '110001011001': 'Z',
+            '100100101101': '-', '101001001011': '.', '110100100101': ' ',
+            '100100100101': '*'  // Start/Stop
         };
-
-        // Create reverse lookup
-        const patternToChar = {};
-        for (const [char, pattern] of Object.entries(code39Encoding)) {
-            patternToChar[pattern] = char;
-        }
 
         function log(message) {
             console.log(message);
@@ -735,70 +729,65 @@
             
             blackWidths.sort((a, b) => a - b);
             
-            // ใช้ k-means clustering
+            // ใช้ค่ากลางเพื่อแบ่ง narrow/wide
             const narrowAvg = blackWidths.slice(0, Math.floor(blackWidths.length * 0.4))
                 .reduce((a, b) => a + b, 0) / Math.floor(blackWidths.length * 0.4);
             const wideAvg = blackWidths.slice(Math.floor(blackWidths.length * 0.6))
                 .reduce((a, b) => a + b, 0) / (blackWidths.length - Math.floor(blackWidths.length * 0.6));
             
             const ratio = wideAvg / narrowAvg;
-            if (ratio < 1.8 || ratio > 3.8) {
+            if (ratio < 1.5 || ratio > 4.0) {
                 if (debugMode) log(`✗ Ratio: ${ratio.toFixed(2)}`);
                 return null;
             }
             
             const threshold = (narrowAvg + wideAvg) / 2;
             
-            // หา start marker
-            let startIdx = -1;
-            for (let i = 0; i < bars.length - 11; i++) {
-                if (bars[i].color !== 'black') continue;
-                
-                const segment = bars.slice(i, i + 12);
-                const pattern = segment.map(b => b.width >= threshold ? '1' : '0').join('');
-                
-                if (patternToChar[pattern] === '*') {
-                    startIdx = i;
-                    break;
-                }
+            // แปลง bars เป็น binary pattern (ใช้ทั้ง black และ white)
+            let pattern = '';
+            for (const bar of bars) {
+                pattern += bar.width >= threshold ? '1' : '0';
             }
             
-            if (startIdx === -1) {
-                if (debugMode) log('✗ No START');
-                return null;
+            if (debugMode) {
+                log(`Pattern sample: ${pattern.substring(0, 60)}...`);
             }
             
-            // ถอดรหัส
+            // ค้นหา start marker (*)
             let decoded = '';
-            let i = startIdx + 12; // ข้าม start marker + gap
+            let foundStart = false;
             
-            while (i < bars.length - 11) {
-                if (bars[i].color !== 'black') {
-                    i++;
-                    continue;
+            for (let i = 0; i < pattern.length - 11; i++) {
+                const segment = pattern.substring(i, i + 12);
+                
+                if (code39Map[segment]) {
+                    const char = code39Map[segment];
+                    
+                    if (char === '*') {
+                        if (!foundStart) {
+                            foundStart = true;
+                            if (debugMode) log('✓ Found START (*)');
+                            i += 11;
+                            continue;
+                        } else {
+                            if (debugMode) log(`✓ Found STOP (*), decoded: ${decoded}`);
+                            return decoded.length > 0 ? decoded : null;
+                        }
+                    }
+                    
+                    if (foundStart) {
+                        decoded += char;
+                        i += 11;
+                    }
                 }
-                
-                const segment = bars.slice(i, i + 12);
-                if (segment.length < 12) break;
-                
-                const pattern = segment.map(b => b.width >= threshold ? '1' : '0').join('');
-                const char = patternToChar[pattern];
-                
-                if (char === '*') {
-                    return decoded.length > 0 ? decoded : null;
-                }
-                
-                if (char) {
-                    decoded += char;
-                    i += 12;
-                } else {
-                    i++;
-                }
-                
-                if (decoded.length > 50) break;
             }
             
-            return decoded.length >= 1 ? decoded : null;
+            // ถ้าถอดรหัสได้แต่ไม่มี STOP ก็ยอมรับถ้า >= 3 ตัว
+            if (decoded.length >= 3) {
+                return decoded;
+            }
+            
+            return null;
         }
 
         function handleScanSuccess(data, confidence) {
