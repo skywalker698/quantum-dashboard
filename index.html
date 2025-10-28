@@ -871,31 +871,26 @@
 
 
 
-function handleScanSuccess(data, confidence) {
-    lastScanned = data;
-    resultDiv.innerHTML = data + '<span class="cursor-blink"></span>';
-    sendToServer(data); // <— เพิ่มบรรทัดนี้
-}
 
-        // function handleScanSuccess(data, confidence) {
-        //     lastScanned = data;
+        function handleScanSuccess(data, confidence) {
+            lastScanned = data;
             
-        //     resultDiv.innerHTML = data + '<span class="cursor-blink"></span>';
-       
-        //     const now = new Date();
-        //     const time = now.toLocaleTimeString('th-TH');
-        //     history.unshift({ data, time, confidence: confidence.toFixed(0) + '%' });
-        //     if (history.length > 10) history.pop();
-        //     updateHistory();
+            resultDiv.innerHTML = data + '<span class="cursor-blink"></span>';
+          sendToServer(data); 
+            const now = new Date();
+            const time = now.toLocaleTimeString('th-TH');
+            history.unshift({ data, time, confidence: confidence.toFixed(0) + '%' });
+            if (history.length > 10) history.pop();
+            updateHistory();
             
-        //     showSuccess();
-        //     sendData(data);
-        //     log(`✅ สแกนสำเร็จ: ${data} (confidence: ${confidence.toFixed(0)}%)`);
+            showSuccess();
+          
+           // log(`✅ สแกนสำเร็จ: ${data} (confidence: ${confidence.toFixed(0)}%)`);
             
-        //     if (navigator.vibrate) {
-        //         navigator.vibrate(200);
-        //     }
-        // }
+            if (navigator.vibrate) {
+                navigator.vibrate(200);
+            }
+        }
 
 function sendToServer(barcode) {
     fetch('http://192.168.1.35:8080/scan', {
