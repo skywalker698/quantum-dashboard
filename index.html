@@ -782,63 +782,89 @@
         }
 
  function decodeCode39Strict(bars) {
-  const patternToChar = {
-    '101000111011101': '0',
-    '111010001010111': '1',
-    '101110001010111': '2',
-    '111011100010101': '3',
-    '101000111010111': '4',
-    '111010001110101': '5',
-    '101110001110101': '6',
-    '101000101110111': '7',
-    '111010001011101': '8',
-    '101110001011101': '9',
-    '100010111011101': '*', // start/stop
-  };
-
-  if (!bars || bars.length < 9) return null;
-
-  // คำนวณค่าเฉลี่ยความกว้างแท่ง
-  const widths = bars.map(b => b.width);
-  const narrowAvg = average(widths.filter(w => w < median(widths)));
-  const wideAvg = average(widths.filter(w => w >= median(widths)));
-  const ratio = wideAvg / narrowAvg;
-
-  // ขยายช่วง ratio ให้สแกนติดง่ายขึ้น
-  if (ratio < 1.3 || ratio > 4.5) return null;
-
-  const threshold = (narrowAvg + wideAvg) / 2;
-  let decoded = '';
-
-  // อ่านเป็นช่วง ๆ ละ 9 bar (1 ตัวอักษร)
-  for (let i = 0; i <= bars.length - 9; i += 9) {
-    const segment = bars.slice(i, i + 9);
-    const pattern = segment.map(b => b.width >= threshold ? '1' : '0').join('');
-    const char = patternToChar[pattern];
-    if (char) decoded += char;
-  }
-
-  if (!decoded.includes('*')) return null;
-
-  // ตัด * ต้นและท้าย
-  decoded = decoded.replace(/^[^*]*\*/, '').replace(/\*[^*]*$/, '');
-
-  // กรองให้เหลือเฉพาะตัวเลข
-  decoded = decoded.replace(/[^0-9]/g, '');
-
-  return decoded || null;
-
-  // helper
-  function average(arr) {
-    if (!arr.length) return 0;
-    return arr.reduce((a, b) => a + b, 0) / arr.length;
-  }
-  function median(arr) {
-    if (!arr.length) return 0;
-    const sorted = [...arr].sort((a, b) => a - b);
-    const mid = Math.floor(sorted.length / 2);
-    return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-  }
+    if (bars.length < 20) return null;
+    
+    const widths = bars.map(b => b.width).sort((a, b) => a - b);
+    let narrowSum = 0, narrowCount = 0;
+    let wideSum = 0, wideCount = 0;
+    const midpoint = widths[Math.floor(widths.length / 2)];
+    
+    for (const w of widths) {
+        if (w < midpoint) {
+            narrowSum += w;
+            narrowCount++;
+        } else {
+            wideSum += w;
+            wideCount++;
+        }
+    }
+    
+    if (narrowCount === 0 || wideCount === 0) return null;
+    
+    const narrowAvg = narrowSum / narrowCount;
+    const wideAvg = wideSum / wideCount;
+    const ratio = wideAvg / narrowAvg;
+    
+    if (ratio < 1.8 || ratio > 3.5) {
+        if (debugMode) {
+            log(`✗ Ratio ผิด: ${ratio.toFixed(2)}`);
+        }
+        return null;
+    }
+    
+    const threshold = (narrowAvg + wideAvg) / 2;
+    const patterns = [];
+    for (let i = 0; i < bars.length - 8; i++) {
+        const segment = bars.slice(i, i + 9);
+        const pattern = segment.map(b => b.width >= threshold ? '1' : '0').join('');
+        patterns.push({ pattern, index: i });
+    }
+    
+    let startIndex = -1;
+    for (let i = 0; i < patterns.length; i++) {
+        if (patternToChar[patterns[i].pattern] === '*') {
+            startIndex = i;
+            break;
+        }
+    }
+    
+    if (startIndex === -1) {
+        if (debugMode) log('✗ ไม่พบ START marker');
+        return null;
+    }
+    
+    let decoded = '';
+    let i = startIndex + 1;
+    
+    while (i < patterns.length) {
+        const char = patternToChar[patterns[i].pattern];
+        if (!char) {
+            i++;
+            continue;
+        }
+        
+        if (char === '*') {
+            // พบ STOP marker
+            if (decoded.length > 0) {
+                // 🧩 กรองเฉพาะตัวเลขก่อนส่งออก
+                const digitsOnly = decoded.replace(/[^0-9]/g, '');
+                return digitsOnly || null;
+            }
+            break;
+        }
+        
+        decoded += char;
+        i++;
+        if (decoded.length > 50) break;
+    }
+    
+    if (decoded.length >= 3) {
+        // 🧩 กรองเฉพาะตัวเลขก่อนส่งออก
+        const digitsOnly = decoded.replace(/[^0-9]/g, '');
+        return digitsOnly || null;
+    }
+    
+    return null;
 }
 
 
