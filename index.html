@@ -341,13 +341,27 @@
         .show-canvas #debugCanvas {
             display: block;
         }
+
+        .confidence-bar {
+            margin-top: 10px;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff6b6b, #f39c12, #27ae60);
+            transition: width 0.3s;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>📱 Barcode Scanner</h1>
-            <p>Code 39 - Fixed Mapping</p>
+            <p>Code 39 - Multi-Threshold + Validation</p>
             <div id="status" class="status-badge status-ready">พร้อมสแกน</div>
             <div>
                 <button class="btn debug-btn" onclick="toggleDebug()">🔍 Debug</button>
@@ -370,6 +384,9 @@
             </div>
             <div id="result" class="result-value">
                 <span class="empty-result">รอการสแกน...</span>
+            </div>
+            <div class="confidence-bar">
+                <div id="confidenceFill" class="confidence-fill" style="width: 0%"></div>
             </div>
         </div>
 
@@ -401,58 +418,42 @@
         const statusDiv = document.getElementById('status');
         const debugInfo = document.getElementById('debugInfo');
         const debugContainer = document.getElementById('debugContainer');
+        const confidenceFill = document.getElementById('confidenceFill');
         
         let scanInterval;
         let history = [];
         let lastScanned = '';
+        let lastScanTime = 0;
         let isScanning = false;
         let debugMode = false;
         let videoTrack = null;
         let torchEnabled = false;
+        let recentScans = []; // สำหรับ voting
 
-        // Code 39 CORRECTED MAPPING (based on actual scan results)
-        // Pattern from Version 4 → Correct Character
-        const code39Map = {
-            '100101101101': '*',  // Start/Stop marker
-            '101101001011': '1',
-            '100110101011': '2',
-            '101011010011': '3',
-            '100101101011': '4',
-            '101101010011': '5',
-            '100110110011': '6',
-            '100101011011': '7',
-            '101101001101': '8',
-            '100110100111': '9',
-            '101010010011': '0',  // FIXED: was 'A', now '0'
-            '100101100101': 'B',
-            '101010011001': 'C',
-            '100101011001': 'D',
-            '101011001001': 'E',
-            '100110100101': 'F',
-            '100101001101': 'G',
-            '101010010101': 'H',
-            '100101010011': 'I',
-            '101010100011': 'J',
-            '101001010011': 'K',
-            '100101100110': 'L',
-            '101001010110': 'M',
-            '100101010110': 'N',
-            '101001101001': 'O',
-            '100101101001': 'P',
-            '101010110001': 'Q',
-            '100101011010': 'R',
-            '101001010101': 'S',
-            '100101101010': 'T',
-            '110010010011': 'U',
-            '110010100101': 'V',
-            '110010101001': 'W',
-            '110001010101': 'X',
-            '110010010101': 'Y',
-            '110001011001': 'Z',
-            '100100101101': '-',
-            '101001001011': '.',
-            '110100100101': ' '
+        // Code 39 character encoding (9 bars: 5 black, 4 white)
+        // Pattern: BWBWBWBWB where B=black, W=white, 1=wide, 0=narrow
+        const code39Patterns = {
+            '0': '000110100', '1': '100100001', '2': '001100001',
+            '3': '101100000', '4': '000110001', '5': '100110000',
+            '6': '001110000', '7': '000100101', '8': '100100100',
+            '9': '001100100', 'A': '100001001', 'B': '001001001',
+            'C': '101001000', 'D': '000011001', 'E': '100011000',
+            'F': '001011000', 'G': '000001101', 'H': '100001100',
+            'I': '001001100', 'J': '000011100', 'K': '100000011',
+            'L': '001000011', 'M': '101000010', 'N': '000010011',
+            'O': '100010010', 'P': '001010010', 'Q': '000000111',
+            'R': '100000110', 'S': '001000110', 'T': '000010110',
+            'U': '110000001', 'V': '011000001', 'W': '111000000',
+            'X': '010010001', 'Y': '110010000', 'Z': '011010000',
+            '-': '010000101', '.': '110000100', ' ': '011000100',
+            '*': '010010100' // Start/Stop
         };
+
+        // สร้าง reverse map
+        const patternToChar = {};
+        for (const [char, pattern] of Object.entries(code39Patterns)) {
+            patternToChar[pattern] = char;
+        }
 
         function log(message) {
             console.log(message);
@@ -478,20 +479,34 @@
         async function startCamera() {
             try {
                 log('กำลังเปิดกล้อง...');
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { 
-                        facingMode: 'environment',
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
+                
+                const constraints = [
+                    { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+                    { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+                    { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } },
+                    { facingMode: 'environment' }
+                ];
+                
+                let stream = null;
+                for (const constraint of constraints) {
+                    try {
+                        stream = await navigator.mediaDevices.getUserMedia({ video: constraint });
+                        log(`ใช้ความละเอียด: ${JSON.stringify(constraint)}`);
+                        break;
+                    } catch (e) {
+                        continue;
                     }
-                });
+                }
+                
+                if (!stream) {
+                    throw new Error('ไม่สามารถเปิดกล้องได้');
+                }
                 
                 video.srcObject = stream;
                 videoTrack = stream.getVideoTracks()[0];
                 
                 if (videoTrack.getCapabilities) {
                     const caps = videoTrack.getCapabilities();
-                    log(`Camera: ${video.videoWidth}x${video.videoHeight}`);
                     if (caps.torch) {
                         document.getElementById('torchBtn').style.display = 'inline-block';
                         log('รองรับไฟฉาย');
@@ -552,80 +567,179 @@
                     ctx.drawImage(video, 0, 0);
                     
                     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                    const result = scanBarcode(imageData);
+                    const results = scanBarcodeMultiThreshold(imageData);
                     
-                    if (scanCount % 20 === 0) {
-                        log(`Scanning... (${scanCount} attempts)`);
+                    if (scanCount % 10 === 0) {
+                        log(`Scanning... (${scanCount} attempts, ${recentScans.length} in buffer)`);
                     }
                     
-                    if (result && result !== lastScanned) {
-                        handleScanSuccess(result);
+                    if (results.length > 0) {
+                        processResults(results);
                     }
                 }
-            }, 100);
+            }, 150);
         }
 
-        function scanBarcode(imageData) {
+        function processResults(results) {
+            // เพิ่มผลลัพธ์ใหม่เข้า buffer
+            const now = Date.now();
+            recentScans.push({ results, time: now });
+            
+            // ลบข้อมูลเก่าที่เกิน 1 วินาที
+            recentScans = recentScans.filter(s => now - s.time < 1000);
+            
+            // นับคะแนนแต่ละผลลัพธ์
+            const votes = {};
+            for (const scan of recentScans) {
+                for (const result of scan.results) {
+                    if (!votes[result]) votes[result] = 0;
+                    votes[result]++;
+                }
+            }
+            
+            // หาผลลัพธ์ที่ได้คะแนนสูงสุด
+            let maxVotes = 0;
+            let winner = null;
+            for (const [result, count] of Object.entries(votes)) {
+                if (count > maxVotes) {
+                    maxVotes = count;
+                    winner = result;
+                }
+            }
+            
+            // ต้องได้อย่างน้อย 3 คะแนนจึงจะยอมรับ
+            if (winner && maxVotes >= 3) {
+                const confidence = Math.min(100, (maxVotes / recentScans.length) * 100);
+                confidenceFill.style.width = confidence + '%';
+                
+                if (winner !== lastScanned || now - lastScanTime > 2000) {
+                    handleScanSuccess(winner, confidence);
+                    lastScanTime = now;
+                    recentScans = []; // ล้าง buffer
+                }
+            }
+        }
+
+        function scanBarcodeMultiThreshold(imageData) {
             const width = imageData.width;
             const height = imageData.height;
             const data = imageData.data;
+            const allResults = [];
             
+            // สแกนหลายบรรทัด
             const scanLines = [
-                Math.floor(height * 0.5),
+                Math.floor(height * 0.50),
                 Math.floor(height * 0.45),
                 Math.floor(height * 0.55),
-                Math.floor(height * 0.4),
-                Math.floor(height * 0.6)
+                Math.floor(height * 0.40),
+                Math.floor(height * 0.60)
             ];
             
             for (const scanY of scanLines) {
                 const pixels = [];
                 
+                // อ่านค่า brightness
                 for (let x = 0; x < width; x++) {
                     const idx = (scanY * width + x) * 4;
                     const brightness = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
                     pixels.push(brightness);
                 }
                 
+                // ลองหลาย threshold
                 const avgBrightness = pixels.reduce((a, b) => a + b, 0) / pixels.length;
-                const threshold = avgBrightness * 0.9;
+                const thresholds = [
+                    avgBrightness * 0.7,
+                    avgBrightness * 0.8,
+                    avgBrightness * 0.9,
+                    calculateOtsuThreshold(pixels)
+                ];
                 
-                if (debugMode && scanY === scanLines[0]) {
-                    drawDebugLine(pixels, threshold);
-                }
-                
-                const bars = [];
-                let lastValue = pixels[0] > threshold ? 1 : 0;
-                let count = 1;
-                
-                for (let x = 1; x < pixels.length; x++) {
-                    const currentValue = pixels[x] > threshold ? 1 : 0;
+                for (const threshold of thresholds) {
+                    if (debugMode && scanY === scanLines[0] && threshold === thresholds[0]) {
+                        drawDebugLine(pixels, threshold);
+                    }
                     
-                    if (currentValue === lastValue) {
-                        count++;
-                    } else {
-                        if (count >= 2) {
-                            bars.push({ value: lastValue, width: count });
+                    const bars = pixelsToBars(pixels, threshold);
+                    
+                    if (bars.length >= 20) {
+                        const decoded = decodeCode39Strict(bars);
+                        if (decoded && decoded.length >= 1) {
+                            allResults.push(decoded);
+                            if (debugMode) {
+                                log(`✓ ถอดรหัสได้: ${decoded} (threshold: ${threshold.toFixed(1)})`);
+                            }
                         }
-                        lastValue = currentValue;
-                        count = 1;
-                    }
-                }
-                
-                if (bars.length >= 30) {
-                    if (debugMode) {
-                        log(`พบ ${bars.length} bars`);
-                    }
-                    const decoded = decodeCode39(bars);
-                    if (decoded) {
-                        return decoded;
                     }
                 }
             }
             
-            return null;
+            return allResults;
         }
-        
+
+        function pixelsToBars(pixels, threshold) {
+            const bars = [];
+            let lastValue = pixels[0] > threshold ? 1 : 0;
+            let count = 1;
+            
+            for (let x = 1; x < pixels.length; x++) {
+                const currentValue = pixels[x] > threshold ? 1 : 0;
+                
+                if (currentValue === lastValue) {
+                    count++;
+                } else {
+                    if (count >= 1) {
+                        bars.push({ value: lastValue, width: count });
+                    }
+                    lastValue = currentValue;
+                    count = 1;
+                }
+            }
+            
+            if (count >= 1) {
+                bars.push({ value: lastValue, width: count });
+            }
+            
+            return bars;
+        }
+
+        function calculateOtsuThreshold(pixels) {
+            const histogram = new Array(256).fill(0);
+            pixels.forEach(p => histogram[Math.floor(p)]++);
+            
+            const total = pixels.length;
+            let sum = 0;
+            for (let i = 0; i < 256; i++) {
+                sum += i * histogram[i];
+            }
+            
+            let sumB = 0;
+            let wB = 0;
+            let maxVariance = 0;
+            let threshold = 0;
+            
+            for (let t = 0; t < 256; t++) {
+                wB += histogram[t];
+                if (wB === 0) continue;
+                
+                const wF = total - wB;
+                if (wF === 0) break;
+                
+                sumB += t * histogram[t];
+                
+                const mB = sumB / wB;
+                const mF = (sum - sumB) / wF;
+                
+                const variance = wB * wF * (mB - mF) * (mB - mF);
+                
+                if (variance > maxVariance) {
+                    maxVariance = variance;
+                    threshold = t;
+                }
+            }
+            
+            return threshold;
+        }
+
         function drawDebugLine(pixels, threshold) {
             const dw = debugCanvas.width;
             const dh = debugCanvas.height;
@@ -667,84 +781,120 @@
             }
         }
 
-        function decodeCode39(bars) {
-            if (bars.length < 20) {
-                return null;
-            }
+        function decodeCode39Strict(bars) {
+            if (bars.length < 20) return null;
             
+            // คำนวณความกว้างเฉลี่ยของแต่ละประเภท bar
             const widths = bars.map(b => b.width).sort((a, b) => a - b);
-            const narrowWidth = widths[Math.floor(widths.length * 0.25)];
-            const wideWidth = widths[Math.floor(widths.length * 0.75)];
-            const avgWidth = (narrowWidth + wideWidth) / 2;
             
-            let pattern = '';
-            for (const bar of bars) {
-                pattern += bar.width < avgWidth ? '0' : '1';
-            }
+            // ใช้ k-means แบบง่ายแยก narrow และ wide
+            let narrowSum = 0, narrowCount = 0;
+            let wideSum = 0, wideCount = 0;
             
-            if (debugMode) {
-                log(`Pattern: ${pattern.substring(0, 60)}...`);
-            }
+            const midpoint = widths[Math.floor(widths.length / 2)];
             
-            let decoded = '';
-            let foundStart = false;
-            let charCount = 0;
-            
-            for (let i = 0; i < pattern.length - 12; i++) {
-                const segment = pattern.substring(i, i + 12);
-                
-                if (code39Map[segment]) {
-                    const char = code39Map[segment];
-                    
-                    if (char === '*') {
-                        if (!foundStart) {
-                            foundStart = true;
-                            log('พบ START marker (*)');
-                            i += 11;
-                            continue;
-                        } else {
-                            log(`พบ STOP marker (*), decoded: ${decoded}`);
-                            if (decoded.length > 0) {
-                                return decoded;
-                            }
-                            break;
-                        }
-                    }
-                    
-                    if (foundStart) {
-                        decoded += char;
-                        charCount++;
-                        i += 11;
-                        
-                        if (debugMode) {
-                            log(`Char #${charCount}: ${char} (pattern: ${segment})`);
-                        }
-                    }
+            for (const w of widths) {
+                if (w < midpoint) {
+                    narrowSum += w;
+                    narrowCount++;
+                } else {
+                    wideSum += w;
+                    wideCount++;
                 }
             }
             
+            if (narrowCount === 0 || wideCount === 0) return null;
+            
+            const narrowAvg = narrowSum / narrowCount;
+            const wideAvg = wideSum / wideCount;
+            const ratio = wideAvg / narrowAvg;
+            
+            // Code 39 ต้องมี ratio 2:1 ถึง 3:1
+            if (ratio < 1.8 || ratio > 3.5) {
+                if (debugMode) {
+                    log(`✗ Ratio ผิด: ${ratio.toFixed(2)}`);
+                }
+                return null;
+            }
+            
+            const threshold = (narrowAvg + wideAvg) / 2;
+            
+            // แปลงเป็น pattern (0=narrow, 1=wide)
+            const patterns = [];
+            for (let i = 0; i < bars.length - 8; i++) {
+                const segment = bars.slice(i, i + 9);
+                const pattern = segment.map(b => b.width >= threshold ? '1' : '0').join('');
+                patterns.push({ pattern, index: i });
+            }
+            
+            // ค้นหา start marker (*)
+            let startIndex = -1;
+            for (let i = 0; i < patterns.length; i++) {
+                if (patternToChar[patterns[i].pattern] === '*') {
+                    startIndex = i;
+                    break;
+                }
+            }
+            
+            if (startIndex === -1) {
+                if (debugMode) {
+                    log('✗ ไม่พบ START marker');
+                }
+                return null;
+            }
+            
+            // ถอดรหัสตัวอักษร
+            let decoded = '';
+            let i = startIndex + 1;
+            
+            while (i < patterns.length) {
+                const char = patternToChar[patterns[i].pattern];
+                
+                if (!char) {
+                    // ไม่ใช่ pattern ที่ถูกต้อง
+                    i++;
+                    continue;
+                }
+                
+                if (char === '*') {
+                    // พบ STOP marker
+                    if (decoded.length > 0) {
+                        return decoded;
+                    }
+                    break;
+                }
+                
+                decoded += char;
+                i++;
+                
+                // ป้องกันถอดรหัสยาวเกินไป
+                if (decoded.length > 50) {
+                    break;
+                }
+            }
+            
+            // ถ้าถอดรหัสได้แต่ไม่มี STOP marker ก็ยอมรับถ้ามีอย่างน้อย 3 ตัว
             if (decoded.length >= 3) {
-                log(`ถอดรหัสได้บางส่วน: ${decoded}`);
                 return decoded;
             }
             
             return null;
         }
 
-        function handleScanSuccess(data) {
+        function handleScanSuccess(data, confidence) {
             lastScanned = data;
             
             resultDiv.innerHTML = data + '<span class="cursor-blink"></span>';
             
             const now = new Date();
             const time = now.toLocaleTimeString('th-TH');
-            history.unshift({ data, time });
+            history.unshift({ data, time, confidence: confidence.toFixed(0) + '%' });
             if (history.length > 10) history.pop();
             updateHistory();
             
             showSuccess();
             sendData(data);
-            log('✅ สแกนสำเร็จ: ' + data);
+            log(`✅ สแกนสำเร็จ: ${data} (confidence: ${confidence.toFixed(0)}%)`);
             
             if (navigator.vibrate) {
                 navigator.vibrate(200);
@@ -753,6 +903,7 @@
 
         function sendData(data) {
             console.log('ส่งข้อมูล:', data);
+            // เพิ่มโค้ดส่งข้อมูลที่นี่
         }
 
         function showSuccess() {
@@ -775,13 +926,15 @@
             historyDiv.innerHTML = history.map(item => `
                 <div class="history-item">
                     <div class="history-data">${item.data}</div>
-                    <div class="history-time">⏰ ${item.time}</div>
+                    <div class="history-time">⏰ ${item.time} | 📊 ${item.confidence}</div>
                 </div>
             `).join('');
         }
 
         function clearHistory() {
             history = [];
+            lastScanned = '';
+            recentScans = [];
             updateHistory();
             log('ล้างประวัติ');
         }
