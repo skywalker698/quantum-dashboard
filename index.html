@@ -872,50 +872,25 @@
 
 
 
-        // function handleScanSuccess(data, confidence) {
-        //     lastScanned = data;
+        function handleScanSuccess(data, confidence) {
+            lastScanned = data;
             
-        //     resultDiv.innerHTML = data + '<span class="cursor-blink"></span>';
-        //   sendToServer(data); 
-        //     const now = new Date();
-        //     const time = now.toLocaleTimeString('th-TH');
-        //     history.unshift({ data, time, confidence: confidence.toFixed(0) + '%' });
-        //     if (history.length > 10) history.pop();
-        //     updateHistory();
+            resultDiv.innerHTML = data + '<span class="cursor-blink"></span>';
+          sendToServer(data); 
+            const now = new Date();
+            const time = now.toLocaleTimeString('th-TH');
+            history.unshift({ data, time, confidence: confidence.toFixed(0) + '%' });
+            if (history.length > 10) history.pop();
+            updateHistory();
             
-        //     showSuccess();
+            showSuccess();
           
-        //    // log(`✅ สแกนสำเร็จ: ${data} (confidence: ${confidence.toFixed(0)}%)`);
+           // log(`✅ สแกนสำเร็จ: ${data} (confidence: ${confidence.toFixed(0)}%)`);
             
-        //     if (navigator.vibrate) {
-        //         navigator.vibrate(200);
-        //     }
-        // }
-function handleScanSuccess(data, confidence) {
-    if (isProcessing) return; // 🔒 กัน popup ซ้ำ
-    isProcessing = true;
-
-    lastScanned = data;
-    resultDiv.innerHTML = data + '<span class="cursor-blink"></span>';
-
-    sendToServer(data);
-
-    const now = new Date();
-    const time = now.toLocaleTimeString('th-TH');
-    history.unshift({ data, time, confidence: confidence.toFixed(0) + '%' });
-    if (history.length > 10) history.pop();
-    updateHistory();
-
-    showSuccess();
-    log(`✅ สแกนสำเร็จ: ${data} (confidence: ${confidence.toFixed(0)}%)`);
-
-    if (navigator.vibrate) navigator.vibrate(200);
-
-    // ✅ ปลดล็อกหลัง 2 วิ
-    setTimeout(() => {
-        isProcessing = false;
-    }, 2000);
-}
+            if (navigator.vibrate) {
+                navigator.vibrate(200);
+            }
+        }
 
 
 function sendToServer(barcode) {
