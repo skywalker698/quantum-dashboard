@@ -217,10 +217,11 @@
             padding: 10px;
             border-radius: 8px;
             font-family: monospace;
-            font-size: 12px;
+            font-size: 11px;
             color: #333;
-            max-height: 150px;
+            max-height: 200px;
             overflow-y: auto;
+            white-space: pre-wrap;
         }
 
         .history-container {
@@ -244,8 +245,7 @@
             font-size: 16px;
         }
 
-        .clear-btn {
-            background: #ff6b6b;
+        .btn {
             color: white;
             border: none;
             padding: 8px 15px;
@@ -253,6 +253,23 @@
             font-size: 12px;
             cursor: pointer;
             font-weight: bold;
+            margin: 5px;
+        }
+
+        .clear-btn {
+            background: #ff6b6b;
+        }
+
+        .torch-btn {
+            background: #f39c12;
+        }
+
+        .torch-on {
+            background: #27ae60;
+        }
+
+        .debug-btn {
+            background: #667eea;
         }
 
         .history-item {
@@ -312,44 +329,17 @@
         canvas {
             display: none;
         }
-
-        .toggle-debug {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 8px;
-            font-size: 14px;
-            cursor: pointer;
-            margin-top: 10px;
-            margin-right: 10px;
-        }
-
-        .torch-btn {
-            background: #f39c12;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 8px;
-            font-size: 14px;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-
-        .torch-on {
-            background: #27ae60;
-        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>📱 Barcode Scanner</h1>
-            <p>Code 39 - Auto Send (Improved)</p>
+            <p>Code 39 - Auto Send</p>
             <div id="status" class="status-badge status-ready">พร้อมสแกน</div>
             <div>
-                <button class="toggle-debug" onclick="toggleDebug()">แสดง Debug Info</button>
-                <button id="torchBtn" class="torch-btn" onclick="toggleTorch()" style="display:none;">💡 เปิดไฟฉาย</button>
+                <button class="btn debug-btn" onclick="toggleDebug()">🔍 Debug</button>
+                <button id="torchBtn" class="btn torch-btn" onclick="toggleTorch()" style="display:none;">💡 ไฟฉาย</button>
             </div>
         </div>
 
@@ -379,7 +369,7 @@
         <div class="history-container">
             <div class="history-header">
                 <h3>📋 ประวัติการสแกน</h3>
-                <button class="clear-btn" onclick="clearHistory()">ล้าง</button>
+                <button class="btn clear-btn" onclick="clearHistory()">ล้าง</button>
             </div>
             <div id="history"></div>
         </div>
@@ -388,116 +378,111 @@
     <canvas id="canvas"></canvas>
 
     <script>
-        var video = document.getElementById('video');
-        var canvas = document.getElementById('canvas');
-        var ctx = canvas.getContext('2d');
-        var resultDiv = document.getElementById('result');
-        var historyDiv = document.getElementById('history');
-        var statusDiv = document.getElementById('status');
-        var debugInfo = document.getElementById('debugInfo');
-        var debugContainer = document.getElementById('debugContainer');
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const resultDiv = document.getElementById('result');
+        const historyDiv = document.getElementById('history');
+        const statusDiv = document.getElementById('status');
+        const debugInfo = document.getElementById('debugInfo');
+        const debugContainer = document.getElementById('debugContainer');
         
-        var scanInterval;
-        var history = [];
-        var lastScanned = '';
-        var isScanning = false;
-        var debugMode = false;
-        var scanAttempts = 0;
-        var videoTrack = null;
-        var torchEnabled = false;
+        let scanInterval;
+        let history = [];
+        let lastScanned = '';
+        let isScanning = false;
+        let debugMode = false;
+        let videoTrack = null;
+        let torchEnabled = false;
 
-        var code39Patterns = {
-            '0': [1,0,1,0,0,1,1,0,1,1,0,1],
-            '1': [1,1,0,1,0,0,1,0,1,0,1,1],
-            '2': [1,0,1,1,0,0,1,0,1,0,1,1],
-            '3': [1,1,0,1,1,0,0,1,0,1,0,1],
-            '4': [1,0,1,0,0,1,1,0,1,0,1,1],
-            '5': [1,1,0,1,0,0,1,1,0,1,0,1],
-            '6': [1,0,1,1,0,0,1,1,0,1,0,1],
-            '7': [1,0,1,0,0,1,0,1,1,0,1,1],
-            '8': [1,1,0,1,0,0,1,0,1,1,0,1],
-            '9': [1,0,1,1,0,0,1,0,1,1,0,1],
-            'A': [1,1,0,1,0,1,0,0,1,0,1,1],
-            'B': [1,0,1,1,0,1,0,0,1,0,1,1],
-            'C': [1,1,0,1,1,0,1,0,0,1,0,1],
-            'D': [1,0,1,0,1,1,0,0,1,0,1,1],
-            'E': [1,1,0,1,0,1,1,0,0,1,0,1],
-            'F': [1,0,1,1,0,1,1,0,0,1,0,1],
-            'G': [1,0,1,0,1,0,0,1,1,0,1,1],
-            'H': [1,1,0,1,0,1,0,0,1,1,0,1],
-            'I': [1,0,1,1,0,1,0,0,1,1,0,1],
-            'J': [1,0,1,0,1,1,0,0,1,1,0,1],
-            'K': [1,1,0,1,0,1,0,1,0,0,1,1],
-            'L': [1,0,1,1,0,1,0,1,0,0,1,1],
-            'M': [1,1,0,1,1,0,1,0,1,0,0,1],
-            'N': [1,0,1,0,1,1,0,1,0,0,1,1],
-            'O': [1,1,0,1,0,1,1,0,1,0,0,1],
-            'P': [1,0,1,1,0,1,1,0,1,0,0,1],
-            'Q': [1,0,1,0,1,0,1,1,0,0,1,1],
-            'R': [1,1,0,1,0,1,0,1,1,0,0,1],
-            'S': [1,0,1,1,0,1,0,1,1,0,0,1],
-            'T': [1,0,1,0,1,1,0,1,1,0,0,1],
-            'U': [1,1,0,0,1,0,1,0,1,0,1,1],
-            'V': [1,0,0,1,1,0,1,0,1,0,1,1],
-            'W': [1,1,0,0,1,1,0,1,0,1,0,1],
-            'X': [1,0,0,1,0,1,1,0,1,0,1,1],
-            'Y': [1,1,0,0,1,0,1,1,0,1,0,1],
-            'Z': [1,0,0,1,1,0,1,1,0,1,0,1],
-            '-': [1,0,0,1,0,1,0,1,1,0,1,1],
-            '.': [1,1,0,0,1,0,1,0,1,1,0,1],
-            ' ': [1,0,0,1,1,0,1,0,1,1,0,1],
-            '$': [1,0,0,1,0,0,1,0,0,1,0,1],
-            '/': [1,0,0,1,0,0,1,0,1,0,0,1],
-            '+': [1,0,0,1,0,1,0,0,1,0,0,1],
-            '%': [1,0,1,0,0,1,0,0,1,0,0,1],
-            '*': [1,0,0,1,0,1,1,0,1,1,0,1]
+        const code39Map = {
+            '100101101101': '0', '101101001011': '1', '100110101011': '2',
+            '101011010011': '3', '100101101011': '4', '101101010011': '5',
+            '100110110011': '6', '100101011011': '7', '101101001101': '8',
+            '100110100111': '9', '101010010011': 'A', '100101100101': 'B',
+            '101010011001': 'C', '100101011001': 'D', '101011001001': 'E',
+            '100110100101': 'F', '100101001101': 'G', '101010010101': 'H',
+            '100101010011': 'I', '101010100011': 'J', '101001010011': 'K',
+            '100101100110': 'L', '101001010110': 'M', '100101010110': 'N',
+            '101001101001': 'O', '100101101001': 'P', '101010110001': 'Q',
+            '100101011010': 'R', '101001010101': 'S', '100101101010': 'T',
+            '110010010011': 'U', '110010100101': 'V', '110010101001': 'W',
+            '110001010101': 'X', '110010010101': 'Y', '110001011001': 'Z',
+            '100100101101': '-', '101001001011': '.', '110100100101': ' ',
+            '100100100101': '*'
         };
-
-        function toggleDebug() {
-            debugMode = !debugMode;
-            debugContainer.style.display = debugMode ? 'block' : 'none';
-        }
 
         function log(message) {
             console.log(message);
             if (debugMode) {
-                var timestamp = new Date().toLocaleTimeString('th-TH');
-                debugInfo.innerHTML = '[' + timestamp + '] ' + message + '<br>' + debugInfo.innerHTML;
+                const timestamp = new Date().toLocaleTimeString('th-TH');
+                debugInfo.textContent = `[${timestamp}] ${message}\n${debugInfo.textContent}`;
             }
         }
 
-        function startCamera() {
-            log('กำลังเปิดกล้อง...');
-            
-            navigator.mediaDevices.getUserMedia({
-                video: {
-                    facingMode: 'environment',
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                }
-            }).then(function(stream) {
+        function toggleDebug() {
+            debugMode = !debugMode;
+            debugContainer.style.display = debugMode ? 'block' : 'none';
+            if (debugMode) {
+                log('เปิด Debug Mode');
+            }
+        }
+
+        async function startCamera() {
+            try {
+                log('กำลังเปิดกล้อง...');
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                });
+                
                 video.srcObject = stream;
                 videoTrack = stream.getVideoTracks()[0];
                 
                 if (videoTrack.getCapabilities) {
-                    var capabilities = videoTrack.getCapabilities();
-                    log('Camera capabilities: ' + JSON.stringify(capabilities));
-                    
-                    if (capabilities.torch) {
+                    const caps = videoTrack.getCapabilities();
+                    log(`Camera: ${video.videoWidth}x${video.videoHeight}`);
+                    if (caps.torch) {
                         document.getElementById('torchBtn').style.display = 'inline-block';
-                        log('อุปกรณ์รองรับไฟฉาย');
+                        log('รองรับไฟฉาย');
                     }
                 }
                 
-                video.onloadedmetadata = function() {
+                video.onloadedmetadata = () => {
                     video.play();
-                    log('กล้องเปิดสำเร็จ: ' + video.videoWidth + 'x' + video.videoHeight);
+                    log(`กล้องเปิดสำเร็จ: ${video.videoWidth}x${video.videoHeight}`);
                     startScanning();
                     updateStatus('กำลังสแกน...', 'scanning');
                 };
-            }).catch(function(err) {
+            } catch (err) {
                 log('Error: ' + err.message);
                 alert('ไม่สามารถเข้าถึงกล้องได้: ' + err.message);
+            }
+        }
+
+        function toggleTorch() {
+            if (!videoTrack) return;
+            
+            torchEnabled = !torchEnabled;
+            const torchBtn = document.getElementById('torchBtn');
+            
+            videoTrack.applyConstraints({
+                advanced: [{ torch: torchEnabled }]
+            }).then(() => {
+                if (torchEnabled) {
+                    torchBtn.textContent = '💡 ปิดไฟ';
+                    torchBtn.className = 'btn torch-btn torch-on';
+                    log('เปิดไฟฉาย');
+                } else {
+                    torchBtn.textContent = '💡 ไฟฉาย';
+                    torchBtn.className = 'btn torch-btn';
+                    log('ปิดไฟฉาย');
+                }
+            }).catch(err => {
+                log('ไม่สามารถควบคุมไฟฉาย: ' + err.message);
             });
         }
 
@@ -511,141 +496,89 @@
             isScanning = true;
             log('เริ่มสแกน...');
             
-            scanInterval = setInterval(function() {
+            scanInterval = setInterval(() => {
                 if (video.readyState === 4) {
-                    scanAttempts++;
                     canvas.width = video.videoWidth;
                     canvas.height = video.videoHeight;
                     ctx.drawImage(video, 0, 0);
                     
-                    var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                    var result = scanBarcode(imageData);
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const result = scanBarcode(imageData);
                     
-                    if (result && result !== lastScanned && result.length > 0) {
-                        log('สแกนสำเร็จ: ' + result);
+                    if (result && result !== lastScanned) {
                         handleScanSuccess(result);
                     }
-                    
-                    if (scanAttempts % 50 === 0) {
-                        log('Scan attempts: ' + scanAttempts);
-                    }
                 }
-            }, 150);
+            }, 100);
         }
 
         function scanBarcode(imageData) {
-            var width = imageData.width;
-            var height = imageData.height;
-            var data = imageData.data;
+            const width = imageData.width;
+            const height = imageData.height;
+            const scanY = Math.floor(height / 2);
+            const data = imageData.data;
             
-            var results = [];
-            var scanLines = [
-                Math.floor(height * 0.5),
-                Math.floor(height * 0.45),
-                Math.floor(height * 0.55),
-                Math.floor(height * 0.4),
-                Math.floor(height * 0.6)
-            ];
+            const bars = [];
+            let lastValue = null;
+            let count = 0;
             
-            for (var l = 0; l < scanLines.length; l++) {
-                var scanY = scanLines[l];
-                var pixels = [];
+            for (let x = 0; x < width; x++) {
+                const idx = (scanY * width + x) * 4;
+                const brightness = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
+                const isWhite = brightness > 128 ? 1 : 0;
                 
-                for (var x = 0; x < width; x++) {
-                    var idx = (scanY * width + x) * 4;
-                    var brightness = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
-                    pixels.push(brightness);
-                }
-                
-                var bars = extractBars(pixels);
-                
-                if (bars.length > 0) {
-                    var decoded = decodeCode39(bars);
-                    if (decoded) {
-                        results.push(decoded);
-                    }
-                }
-            }
-            
-            if (results.length > 0) {
-                var mostCommon = results.sort(function(a, b) {
-                    return results.filter(function(v) { return v === a; }).length -
-                           results.filter(function(v) { return v === b; }).length;
-                }).pop();
-                return mostCommon;
-            }
-            
-            return null;
-        }
-
-        function extractBars(pixels) {
-            var threshold = 128;
-            var binaryData = pixels.map(function(p) { return p > threshold ? 1 : 0; });
-            
-            var bars = [];
-            var currentValue = binaryData[0];
-            var currentLength = 1;
-            
-            for (var i = 1; i < binaryData.length; i++) {
-                if (binaryData[i] === currentValue) {
-                    currentLength++;
+                if (lastValue === null) {
+                    lastValue = isWhite;
+                    count = 1;
+                } else if (lastValue === isWhite) {
+                    count++;
                 } else {
-                    if (currentLength > 1) {
-                        bars.push({ color: currentValue, width: currentLength });
+                    if (count > 2) {
+                        bars.push({ value: lastValue, width: count });
                     }
-                    currentValue = binaryData[i];
-                    currentLength = 1;
+                    lastValue = isWhite;
+                    count = 1;
                 }
             }
             
-            return bars;
+            return decodeCode39(bars);
         }
 
         function decodeCode39(bars) {
-            if (bars.length < 30) return null;
+            if (bars.length < 20) return null;
             
-            var widths = bars.map(function(b) { return b.width; });
-            widths.sort(function(a, b) { return a - b; });
-            var narrowWidth = widths[Math.floor(widths.length * 0.25)];
-            var wideWidth = narrowWidth * 2;
+            const widths = bars.map(b => b.width).sort((a, b) => a - b);
+            const narrowWidth = widths[Math.floor(widths.length * 0.3)];
+            const threshold = narrowWidth * 1.8;
             
-            var pattern = [];
-            for (var i = 0; i < bars.length; i++) {
-                if (bars[i].width < (narrowWidth + wideWidth) / 2) {
-                    pattern.push(0);
-                } else {
-                    pattern.push(1);
-                }
+            let pattern = '';
+            for (const bar of bars) {
+                pattern += bar.width < threshold ? '0' : '1';
             }
             
-            var decoded = '';
-            var foundStart = false;
+            let decoded = '';
+            let foundStart = false;
             
-            for (var i = 0; i < pattern.length - 12; i++) {
-                var segment = pattern.slice(i, i + 12);
-                var segmentStr = segment.join(',');
+            for (let i = 0; i < pattern.length - 12; i++) {
+                const segment = pattern.substring(i, i + 12);
                 
-                for (var char in code39Patterns) {
-                    if (code39Patterns[char].join(',') === segmentStr) {
-                        if (char === '*') {
-                            if (!foundStart) {
-                                foundStart = true;
-                                i += 11;
-                                break;
-                            } else {
-                                return decoded.length > 0 ? decoded : null;
-                            }
+                if (code39Map[segment]) {
+                    const char = code39Map[segment];
+                    if (char === '*') {
+                        if (!foundStart) {
+                            foundStart = true;
+                            continue;
+                        } else {
+                            break;
                         }
-                        if (foundStart) {
-                            decoded += char;
-                            i += 11;
-                        }
-                        break;
+                    }
+                    if (foundStart) {
+                        decoded += char;
                     }
                 }
             }
             
-            return decoded.length > 0 ? decoded : null;
+            return decoded.length > 2 ? decoded : null;
         }
 
         function handleScanSuccess(data) {
@@ -653,32 +586,32 @@
             
             resultDiv.innerHTML = data + '<span class="cursor-blink"></span>';
             
-            var now = new Date();
-            var time = now.toLocaleTimeString('th-TH');
-            history.unshift({ data: data, time: time });
+            const now = new Date();
+            const time = now.toLocaleTimeString('th-TH');
+            history.unshift({ data, time });
             if (history.length > 10) history.pop();
             updateHistory();
             
             showSuccess();
             sendData(data);
+            log('สแกนสำเร็จ: ' + data);
             
             if (navigator.vibrate) {
-                navigator.vibrate([200, 100, 200]);
+                navigator.vibrate(200);
             }
         }
 
         function sendData(data) {
-            log('ส่งข้อมูล: ' + data);
-            console.log('Barcode Data:', data);
+            console.log('ส่งข้อมูล:', data);
         }
 
         function showSuccess() {
-            var indicator = document.createElement('div');
+            const indicator = document.createElement('div');
             indicator.className = 'success-indicator success-show';
             indicator.textContent = '✓ สแกนสำเร็จ';
             document.body.appendChild(indicator);
             
-            setTimeout(function() {
+            setTimeout(() => {
                 indicator.remove();
             }, 800);
         }
@@ -689,14 +622,12 @@
                 return;
             }
             
-            var html = '';
-            for (var i = 0; i < history.length; i++) {
-                html += '<div class="history-item">' +
-                    '<div class="history-data">' + history[i].data + '</div>' +
-                    '<div class="history-time">⏰ ' + history[i].time + '</div>' +
-                    '</div>';
-            }
-            historyDiv.innerHTML = html;
+            historyDiv.innerHTML = history.map(item => `
+                <div class="history-item">
+                    <div class="history-data">${item.data}</div>
+                    <div class="history-time">⏰ ${item.time}</div>
+                </div>
+            `).join('');
         }
 
         function clearHistory() {
@@ -705,32 +636,7 @@
             log('ล้างประวัติ');
         }
 
-        function toggleTorch() {
-            if (!videoTrack) return;
-            
-            torchEnabled = !torchEnabled;
-            var torchBtn = document.getElementById('torchBtn');
-            
-            videoTrack.applyConstraints({
-                advanced: [{ torch: torchEnabled }]
-            }).then(function() {
-                if (torchEnabled) {
-                    torchBtn.textContent = '💡 ปิดไฟฉาย';
-                    torchBtn.className = 'torch-btn torch-on';
-                    log('เปิดไฟฉาย');
-                } else {
-                    torchBtn.textContent = '💡 เปิดไฟฉาย';
-                    torchBtn.className = 'torch-btn';
-                    log('ปิดไฟฉาย');
-                }
-            }).catch(function(err) {
-                log('ไม่สามารถเปิด/ปิดไฟฉาย: ' + err.message);
-                alert('ไม่สามารถควบคุมไฟฉายได้');
-            });
-        }
-
-        window.addEventListener('load', function() {
-            log('เริ่มต้นแอพพลิเคชัน');
+        window.addEventListener('load', () => {
             updateHistory();
             startCamera();
         });
