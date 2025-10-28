@@ -831,6 +831,8 @@
                 }
             }
             
+            if (patterns.length === 0) return null;
+            
             // ค้นหา start marker (*)
             let startIndex = -1;
             for (let i = 0; i < patterns.length; i++) {
@@ -862,6 +864,9 @@
                 if (char === '*') {
                     // พบ STOP marker
                     if (decoded.length > 0) {
+                        if (debugMode) {
+                            log(`✓ ถอดรหัสดิบ: ${decoded}`);
+                        }
                         return decoded;
                     }
                     break;
@@ -878,6 +883,9 @@
             
             // ถ้าถอดรหัสได้แต่ไม่มี STOP marker ก็ยอมรับถ้ามีอย่างน้อย 3 ตัว
             if (decoded.length >= 3) {
+                if (debugMode) {
+                    log(`⚠ ถอดรหัสดิบ (ไม่มี STOP): ${decoded}`);
+                }
                 return decoded;
             }
             
