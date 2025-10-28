@@ -871,40 +871,42 @@
 
 
 
-
-
-        function handleScanSuccess(data, confidence) {
-            lastScanned = data;
-            
-            resultDiv.innerHTML = data + '<span class="cursor-blink"></span>';
-       
-            const now = new Date();
-            const time = now.toLocaleTimeString('th-TH');
-            history.unshift({ data, time, confidence: confidence.toFixed(0) + '%' });
-            if (history.length > 10) history.pop();
-            updateHistory();
-            
-            showSuccess();
-            sendData(data);
-            log(`✅ สแกนสำเร็จ: ${data} (confidence: ${confidence.toFixed(0)}%)`);
-            
-            if (navigator.vibrate) {
-                navigator.vibrate(200);
-            }
-        }
-
-function sendData(data) {
-  fetch('http://192.168.1.35:8080/scan', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ barcode: data })
-  })
-  .then(res => res.json())
-  .then(res => console.log('ส่งสำเร็จ:', res))
-  .catch(err => console.error('ส่งไม่สำเร็จ:', err));
+function handleScanSuccess(data, confidence) {
+    lastScanned = data;
+    resultDiv.innerHTML = data + '<span class="cursor-blink"></span>';
+    sendToServer(data); // <— เพิ่มบรรทัดนี้
 }
 
+        // function handleScanSuccess(data, confidence) {
+        //     lastScanned = data;
+            
+        //     resultDiv.innerHTML = data + '<span class="cursor-blink"></span>';
+       
+        //     const now = new Date();
+        //     const time = now.toLocaleTimeString('th-TH');
+        //     history.unshift({ data, time, confidence: confidence.toFixed(0) + '%' });
+        //     if (history.length > 10) history.pop();
+        //     updateHistory();
+            
+        //     showSuccess();
+        //     sendData(data);
+        //     log(`✅ สแกนสำเร็จ: ${data} (confidence: ${confidence.toFixed(0)}%)`);
+            
+        //     if (navigator.vibrate) {
+        //         navigator.vibrate(200);
+        //     }
+        // }
 
+function sendToServer(barcode) {
+    fetch('http://192.168.1.35:8080/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ barcode: barcode })
+    })
+    .then(res => res.json())
+    .then(data => console.log('📡 ส่งสำเร็จ:', data))
+    .catch(err => console.error('❌ ส่งไม่สำเร็จ:', err));
+}
 
 
         function showSuccess() {
