@@ -347,7 +347,7 @@
     <div class="container">
         <div class="header">
             <h1>📱 Barcode Scanner</h1>
-            <p>Code 39 - Auto Send</p>
+            <p>Code 39 - ปรับปรุงสำหรับมือถือ</p>
             <div id="status" class="status-badge status-ready">พร้อมสแกน</div>
             <div>
                 <button class="btn debug-btn" onclick="toggleDebug()">🔍 Debug</button>
@@ -405,6 +405,7 @@
         let scanInterval;
         let history = [];
         let lastScanned = '';
+        let lastScanTime = 0;
         let isScanning = false;
         let debugMode = false;
         let videoTrack = null;
@@ -431,7 +432,9 @@
             console.log(message);
             if (debugMode) {
                 const timestamp = new Date().toLocaleTimeString('th-TH');
-                debugInfo.textContent = `[${timestamp}] ${message}\n${debugInfo.textContent}`;
+                const lines = debugInfo.textContent.split('\n');
+                if (lines.length > 50) lines.length = 50;
+                debugInfo.textContent = `[${timestamp}] ${message}\n${lines.join('\n')}`;
             }
         }
 
@@ -449,20 +452,35 @@
         async function startCamera() {
             try {
                 log('กำลังเปิดกล้อง...');
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { 
-                        facingMode: 'environment',
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
+                
+                // ลองหลายความละเอียด
+                const constraints = [
+                    { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+                    { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+                    { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } },
+                    { facingMode: 'environment' }
+                ];
+                
+                let stream = null;
+                for (const constraint of constraints) {
+                    try {
+                        stream = await navigator.mediaDevices.getUserMedia({ video: constraint });
+                        log(`ใช้ความละเอียด: ${JSON.stringify(constraint)}`);
+                        break;
+                    } catch (e) {
+                        continue;
                     }
-                });
+                }
+                
+                if (!stream) {
+                    throw new Error('ไม่สามารถเปิดกล้องได้');
+                }
                 
                 video.srcObject = stream;
                 videoTrack = stream.getVideoTracks()[0];
                 
                 if (videoTrack.getCapabilities) {
                     const caps = videoTrack.getCapabilities();
-                    log(`Camera: ${video.videoWidth}x${video.videoHeight}`);
                     if (caps.torch) {
                         document.getElementById('torchBtn').style.display = 'inline-block';
                         log('รองรับไฟฉาย');
@@ -525,15 +543,19 @@
                     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                     const result = scanBarcode(imageData);
                     
-                    if (scanCount % 20 === 0) {
+                    if (scanCount % 10 === 0) {
                         log(`Scanning... (${scanCount} attempts)`);
                     }
                     
-                    if (result && result !== lastScanned) {
-                        handleScanSuccess(result);
+                    if (result) {
+                        const now = Date.now();
+                        if (result !== lastScanned || now - lastScanTime > 2000) {
+                            handleScanSuccess(result);
+                            lastScanTime = now;
+                        }
                     }
                 }
-            }, 100);
+            }, 150); // เพิ่มเป็น 150ms
         }
 
         function scanBarcode(imageData) {
@@ -543,11 +565,13 @@
             
             // สแกนหลายบรรทัด
             const scanLines = [
-                Math.floor(height * 0.5),
+                Math.floor(height * 0.50),
                 Math.floor(height * 0.45),
                 Math.floor(height * 0.55),
-                Math.floor(height * 0.4),
-                Math.floor(height * 0.6)
+                Math.floor(height * 0.40),
+                Math.floor(height * 0.60),
+                Math.floor(height * 0.35),
+                Math.floor(height * 0.65)
             ];
             
             for (const scanY of scanLines) {
@@ -560,16 +584,15 @@
                     pixels.push(brightness);
                 }
                 
-                // ใช้ adaptive threshold
-                const avgBrightness = pixels.reduce((a, b) => a + b, 0) / pixels.length;
-                const threshold = avgBrightness * 0.9;
+                // ใช้ Otsu's method สำหรับ adaptive threshold
+                const threshold = calculateOtsuThreshold(pixels);
                 
                 // แสดงภาพที่สแกน (debug)
                 if (debugMode && scanY === scanLines[0]) {
                     drawDebugLine(pixels, threshold);
                 }
                 
-                // แปลงเป็น binary
+                // แปลงเป็น binary และนับ run-length
                 const bars = [];
                 let lastValue = pixels[0] > threshold ? 1 : 0;
                 let count = 1;
@@ -580,7 +603,7 @@
                     if (currentValue === lastValue) {
                         count++;
                     } else {
-                        if (count >= 2) {
+                        if (count >= 1) { // ลดข้อกำหนด
                             bars.push({ value: lastValue, width: count });
                         }
                         lastValue = currentValue;
@@ -588,20 +611,58 @@
                     }
                 }
                 
-                if (bars.length >= 30) {
+                if (bars.length >= 15) { // ลดจาก 30 เป็น 15
                     if (debugMode) {
-                        log(`พบ ${bars.length} bars (threshold: ${threshold.toFixed(1)}, avg: ${avgBrightness.toFixed(1)})`);
+                        log(`พบ ${bars.length} bars (threshold: ${threshold.toFixed(1)})`);
                     }
                     const decoded = decodeCode39(bars);
                     if (decoded) {
                         return decoded;
                     }
-                } else if (debugMode && bars.length > 0) {
-                    log(`bars น้อยเกิน: ${bars.length} (ต้องการอย่างน้อย 30)`);
                 }
             }
             
             return null;
+        }
+        
+        // Otsu's method สำหรับหา threshold อัตโนมัติ
+        function calculateOtsuThreshold(pixels) {
+            const histogram = new Array(256).fill(0);
+            pixels.forEach(p => histogram[Math.floor(p)]++);
+            
+            const total = pixels.length;
+            let sum = 0;
+            for (let i = 0; i < 256; i++) {
+                sum += i * histogram[i];
+            }
+            
+            let sumB = 0;
+            let wB = 0;
+            let wF = 0;
+            let maxVariance = 0;
+            let threshold = 0;
+            
+            for (let t = 0; t < 256; t++) {
+                wB += histogram[t];
+                if (wB === 0) continue;
+                
+                wF = total - wB;
+                if (wF === 0) break;
+                
+                sumB += t * histogram[t];
+                
+                const mB = sumB / wB;
+                const mF = (sum - sumB) / wF;
+                
+                const variance = wB * wF * (mB - mF) * (mB - mF);
+                
+                if (variance > maxVariance) {
+                    maxVariance = variance;
+                    threshold = t;
+                }
+            }
+            
+            return threshold;
         }
         
         function drawDebugLine(pixels, threshold) {
@@ -649,63 +710,76 @@
         }
 
         function decodeCode39(bars) {
-            if (bars.length < 20) {
+            if (bars.length < 10) { // ลดจาก 20 เป็น 10
                 return null;
             }
             
-            // หาความกว้างของแถบแคบและกว้าง
-            const widths = bars.map(b => b.width).sort((a, b) => a - b);
-            const narrowWidth = widths[Math.floor(widths.length * 0.25)];
-            const wideWidth = widths[Math.floor(widths.length * 0.75)];
-            const avgWidth = (narrowWidth + wideWidth) / 2;
+            // กรองเฉพาะ black bars เพื่อวิเคราะห์
+            const blackBars = bars.filter(b => b.value === 0).map(b => b.width);
+            if (blackBars.length < 5) return null;
             
-            log(`Narrow: ${narrowWidth}, Wide: ${wideWidth}, Avg: ${avgWidth.toFixed(1)}`);
+            // ใช้ median แทน average เพื่อความแม่นยำ
+            blackBars.sort((a, b) => a - b);
+            const medianIdx = Math.floor(blackBars.length / 2);
+            const narrowWidth = blackBars[Math.floor(blackBars.length * 0.3)];
+            const wideWidth = blackBars[Math.floor(blackBars.length * 0.7)];
             
-            // แปลงเป็น binary pattern (0=narrow, 1=wide)
-            let pattern = '';
-            for (const bar of bars) {
-                pattern += bar.width < avgWidth ? '0' : '1';
+            // ตรวจสอบ ratio
+            const ratio = wideWidth / narrowWidth;
+            if (ratio < 1.5 || ratio > 4) {
+                if (debugMode) {
+                    log(`Ratio ไม่เหมาะสม: ${ratio.toFixed(2)} (narrow:${narrowWidth}, wide:${wideWidth})`);
+                }
+                return null;
             }
             
-            log(`Pattern length: ${pattern.length}, Sample: ${pattern.substring(0, 50)}...`);
+            const threshold = (narrowWidth + wideWidth) / 2;
+            
+            log(`N:${narrowWidth.toFixed(1)}, W:${wideWidth.toFixed(1)}, R:${ratio.toFixed(2)}, T:${threshold.toFixed(1)}`);
+            
+            // แปลงเป็น binary pattern
+            let pattern = '';
+            for (const bar of bars) {
+                pattern += bar.width < threshold ? '0' : '1';
+            }
             
             // ถอดรหัส Code 39
             let decoded = '';
             let foundStart = false;
-            let charCount = 0;
             
-            for (let i = 0; i < pattern.length - 12; i++) {
-                const segment = pattern.substring(i, i + 12);
-                
-                if (code39Map[segment]) {
-                    const char = code39Map[segment];
+            for (let i = 0; i < pattern.length - 11; i++) {
+                for (let len = 12; len <= 13; len++) { // ลองทั้ง 12 และ 13 bits
+                    const segment = pattern.substring(i, i + len);
                     
-                    if (char === '*') {
-                        if (!foundStart) {
-                            foundStart = true;
-                            log('พบ START marker (*)');
-                            i += 11;
-                            continue;
-                        } else {
-                            log(`พบ STOP marker (*), decoded: ${decoded}`);
-                            if (decoded.length > 0) {
-                                return decoded;
+                    if (code39Map[segment]) {
+                        const char = code39Map[segment];
+                        
+                        if (char === '*') {
+                            if (!foundStart) {
+                                foundStart = true;
+                                log('พบ START marker (*)');
+                                i += len - 1;
+                                break;
+                            } else {
+                                log(`พบ STOP marker (*), decoded: ${decoded}`);
+                                if (decoded.length > 0) {
+                                    return decoded;
+                                }
                             }
+                        }
+                        
+                        if (foundStart && char !== '*') {
+                            decoded += char;
+                            i += len - 1;
                             break;
                         }
-                    }
-                    
-                    if (foundStart) {
-                        decoded += char;
-                        charCount++;
-                        i += 11;
                     }
                 }
             }
             
-            // ลองถอดรหัสแบบไม่เข้มงวด (ไม่ต้องมี * ครบ)
+            // ถ้าถอดรหัสได้อย่างน้อย 3 ตัวอักษร ก็ให้ผ่าน
             if (decoded.length >= 3) {
-                log(`ถอดรหัสได้บางส่วน: ${decoded}`);
+                log(`ถอดรหัสได้: ${decoded} (${decoded.length} chars)`);
                 return decoded;
             }
             
@@ -725,7 +799,7 @@
             
             showSuccess();
             sendData(data);
-            log('สแกนสำเร็จ: ' + data);
+            log('✅ สแกนสำเร็จ: ' + data);
             
             if (navigator.vibrate) {
                 navigator.vibrate(200);
@@ -734,6 +808,7 @@
 
         function sendData(data) {
             console.log('ส่งข้อมูล:', data);
+            // เพิ่มโค้ดส่งข้อมูลที่นี่
         }
 
         function showSuccess() {
@@ -763,6 +838,7 @@
 
         function clearHistory() {
             history = [];
+            lastScanned = '';
             updateHistory();
             log('ล้างประวัติ');
         }
