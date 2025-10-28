@@ -469,49 +469,23 @@
         function startCamera() {
             log('กำลังเปิดกล้อง...');
             
-            var constraints = {
+            navigator.mediaDevices.getUserMedia({
                 video: {
                     facingMode: 'environment',
-                    width: { ideal: 1920 },
-                    height: { ideal: 1080 }
-                },
-                audio: false
-            };
-            
-            navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
-                video.srcObject = stream;
-                
-                videoTrack = stream.getVideoTracks()[0];
-                var capabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
-                var settings = videoTrack.getSettings ? videoTrack.getSettings() : {};
-                
-                log('Camera capabilities: ' + JSON.stringify(capabilities));
-                log('Camera settings: ' + JSON.stringify(settings));
-                
-                if (capabilities.torch) {
-                    document.getElementById('torchBtn').style.display = 'inline-block';
-                    log('อุปกรณ์รองรับไฟฉาย');
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
                 }
+            }).then(function(stream) {
+                video.srcObject = stream;
+                videoTrack = stream.getVideoTracks()[0];
                 
-                if (videoTrack.applyConstraints) {
-                    var advancedConstraints = {};
+                if (videoTrack.getCapabilities) {
+                    var capabilities = videoTrack.getCapabilities();
+                    log('Camera capabilities: ' + JSON.stringify(capabilities));
                     
-                    if (capabilities.exposureMode && capabilities.exposureMode.includes('continuous')) {
-                        advancedConstraints.exposureMode = 'continuous';
-                    }
-                    
-                    if (capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
-                        advancedConstraints.focusMode = 'continuous';
-                    }
-                    
-                    if (Object.keys(advancedConstraints).length > 0) {
-                        videoTrack.applyConstraints({ advanced: [advancedConstraints] })
-                            .then(function() {
-                                log('ปรับการตั้งค่ากล้องสำเร็จ');
-                            })
-                            .catch(function(err) {
-                                log('ไม่สามารถปรับการตั้งค่า: ' + err.message);
-                            });
+                    if (capabilities.torch) {
+                        document.getElementById('torchBtn').style.display = 'inline-block';
+                        log('อุปกรณ์รองรับไฟฉาย');
                     }
                 }
                 
@@ -523,7 +497,7 @@
                 };
             }).catch(function(err) {
                 log('Error: ' + err.message);
-                alert('ไม่สามารถเข้าถึงกล้องได้: ' + err.message + '\n\nกรุณาตรวจสอบ:\n1. อนุญาตการเข้าถึงกล้อง\n2. ใช้ HTTPS หรือ localhost\n3. ไม่มีแอพอื่นใช้กล้องอยู่');
+                alert('ไม่สามารถเข้าถึงกล้องได้: ' + err.message);
             });
         }
 
