@@ -877,7 +877,7 @@
             lastScanned = data;
             
             resultDiv.innerHTML = data + '<span class="cursor-blink"></span>';
-            
+            sendToServer(data);
             const now = new Date();
             const time = now.toLocaleTimeString('th-TH');
             history.unshift({ data, time, confidence: confidence.toFixed(0) + '%' });
