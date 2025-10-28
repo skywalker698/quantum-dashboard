@@ -496,14 +496,20 @@
             isScanning = true;
             log('เริ่มสแกน...');
             
+            let scanCount = 0;
             scanInterval = setInterval(() => {
                 if (video.readyState === 4) {
+                    scanCount++;
                     canvas.width = video.videoWidth;
                     canvas.height = video.videoHeight;
                     ctx.drawImage(video, 0, 0);
                     
                     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                     const result = scanBarcode(imageData);
+                    
+                    if (scanCount % 20 === 0) {
+                        log(`Scanning... (${scanCount} attempts)`);
+                    }
                     
                     if (result && result !== lastScanned) {
                         handleScanSuccess(result);
