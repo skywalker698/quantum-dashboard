@@ -781,23 +781,24 @@
             }
         }
 
-        function decodeCode39Strict(bars) {
+       function decodeCode39Strict(bars) {
             if (bars.length < 20) return null;
             
-            // คำนวณความกว้างเฉลี่ยของแต่ละประเภท bar
+            // คำนวณความกว้างเฉลี่ยของแต่ละประเภท bar แบบแม่นยำขึ้น
             const widths = bars.map(b => b.width).sort((a, b) => a - b);
             
-            // ใช้ k-means แบบง่ายแยก narrow และ wide
+            // ใช้ percentile แทน midpoint เพื่อแยก narrow/wide ได้ดีขึ้น
+            const p25 = widths[Math.floor(widths.length * 0.25)];
+            const p75 = widths[Math.floor(widths.length * 0.75)];
+            
             let narrowSum = 0, narrowCount = 0;
             let wideSum = 0, wideCount = 0;
             
-            const midpoint = widths[Math.floor(widths.length / 2)];
-            
             for (const w of widths) {
-                if (w < midpoint) {
+                if (w <= p25 * 1.5) {
                     narrowSum += w;
                     narrowCount++;
-                } else {
+                } else if (w >= p75 * 0.7) {
                     wideSum += w;
                     wideCount++;
                 }
@@ -809,28 +810,67 @@
             const wideAvg = wideSum / wideCount;
             const ratio = wideAvg / narrowAvg;
             
-            // Code 39 ต้องมี ratio 2:1 ถึง 3:1
-            if (ratio < 1.8 || ratio > 3.5) {
+            // Code 39 ต้องมี ratio 2:1 ถึง 3:1 แต่ผ่อนปรนเล็กน้อย
+            if (ratio < 1.5 || ratio > 4.0) {
                 if (debugMode) {
                     log(`✗ Ratio ผิด: ${ratio.toFixed(2)}`);
                 }
                 return null;
             }
             
-            const threshold = (narrowAvg + wideAvg) / 2;
+            // ใช้ threshold แบบ adaptive
+            const threshold = (narrowAvg * 1.6 + wideAvg * 0.4);
             
-            // แปลงเป็น pattern (0=narrow, 1=wide)
+            // สร้าง patterns พร้อมคะแนนความเชื่อมั่น
             const patterns = [];
-            for (let i = 0; i < bars.length - 8; i++) {
+            for (let i = 0; i <= bars.length - 9; i++) {
                 const segment = bars.slice(i, i + 9);
+                
+                // ต้องสลับ black-white-black-white... (Code 39 rule)
+                let validStructure = true;
+                for (let j = 0; j < 9; j++) {
+                    const expectedValue = j % 2 === 0 ? 0 : 1; // black, white, black, ...
+                    if (segment[j].value !== expectedValue) {
+                        validStructure = false;
+                        break;
+                    }
+                }
+                
+                if (!validStructure) continue;
+                
                 const pattern = segment.map(b => b.width >= threshold ? '1' : '0').join('');
-                patterns.push({ pattern, index: i });
+                const char = patternToChar[pattern];
+                
+                if (char) {
+                    patterns.push({ pattern, char, index: i, confidence: 1.0 });
+                } else {
+                    // ลองหา pattern ใกล้เคียง (Hamming distance <= 1)
+                    let bestMatch = null;
+                    let bestDistance = 2;
+                    
+                    for (const [refPattern, refChar] of Object.entries(patternToChar)) {
+                        let distance = 0;
+                        for (let k = 0; k < 9; k++) {
+                            if (pattern[k] !== refPattern[k]) distance++;
+                        }
+                        if (distance < bestDistance) {
+                            bestDistance = distance;
+                            bestMatch = { pattern: refPattern, char: refChar, confidence: 1.0 - (distance * 0.3) };
+                        }
+                    }
+                    
+                    if (bestMatch && bestMatch.confidence >= 0.5) {
+                        patterns.push({ ...bestMatch, index: i });
+                    }
+                }
             }
+            
+            if (patterns.length === 0) return null;
             
             // ค้นหา start marker (*)
             let startIndex = -1;
             for (let i = 0; i < patterns.length; i++) {
-                if (patternToChar[patterns[i].pattern] === '*') {
+                if (patterns[i].char === '*') {
                     startIndex = i;
                     break;
                 }
@@ -843,29 +883,32 @@
                 return null;
             }
             
-            // ถอดรหัสตัวอักษร
+            // ถอดรหัสตัวอักษร โดยข้าม * ตัวแรกและตัวสุดท้าย
             let decoded = '';
-            let i = startIndex + 1;
+            let currentIndex = startIndex + 1;
             
-            while (i < patterns.length) {
-                const char = patternToChar[patterns[i].pattern];
+            // แต่ละตัวอักษร Code 39 ต้องห่างกัน 1 gap (white bar)
+            while (currentIndex < patterns.length) {
+                const char = patterns[currentIndex].char;
                 
                 if (!char) {
-                    // ไม่ใช่ pattern ที่ถูกต้อง
-                    i++;
+                    currentIndex++;
                     continue;
                 }
                 
                 if (char === '*') {
-                    // พบ STOP marker
+                    // พบ STOP marker - สำเร็จ
                     if (decoded.length > 0) {
+                        if (debugMode) {
+                            log(`✓ ถอดรหัสสมบูรณ์: *${decoded}*`);
+                        }
                         return decoded;
                     }
                     break;
                 }
                 
                 decoded += char;
-                i++;
+                currentIndex++;
                 
                 // ป้องกันถอดรหัสยาวเกินไป
                 if (decoded.length > 50) {
@@ -873,9 +916,24 @@
                 }
             }
             
-            // ถ้าถอดรหัสได้แต่ไม่มี STOP marker ก็ยอมรับถ้ามีอย่างน้อย 3 ตัว
-            if (decoded.length >= 3) {
-                return decoded;
+            // ถ้าถอดรหัสได้อย่างน้อย 4 ตัวแต่ไม่เจอ STOP marker
+            // ลองหา * ที่อาจจะข้ามไป
+            if (decoded.length >= 4) {
+                // ตรวจสอบว่ามี * ติดท้ายหรือไม่
+                let hasStopMarker = false;
+                for (let i = currentIndex; i < Math.min(currentIndex + 3, patterns.length); i++) {
+                    if (patterns[i].char === '*') {
+                        hasStopMarker = true;
+                        break;
+                    }
+                }
+                
+                if (hasStopMarker || decoded.length >= 6) {
+                    if (debugMode) {
+                        log(`⚠ ถอดรหัสบางส่วน: ${decoded} (ไม่มี STOP หรือขาดหาย)`);
+                    }
+                    return decoded;
+                }
             }
             
             return null;
