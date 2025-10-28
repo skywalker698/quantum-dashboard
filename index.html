@@ -322,6 +322,22 @@
             font-size: 14px;
             cursor: pointer;
             margin-top: 10px;
+            margin-right: 10px;
+        }
+
+        .torch-btn {
+            background: #f39c12;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .torch-on {
+            background: #27ae60;
         }
     </style>
 </head>
@@ -331,7 +347,10 @@
             <h1>📱 Barcode Scanner</h1>
             <p>Code 39 - Auto Send (Improved)</p>
             <div id="status" class="status-badge status-ready">พร้อมสแกน</div>
-            <button class="toggle-debug" onclick="toggleDebug()">แสดง Debug Info</button>
+            <div>
+                <button class="toggle-debug" onclick="toggleDebug()">แสดง Debug Info</button>
+                <button id="torchBtn" class="torch-btn" onclick="toggleTorch()" style="display:none;">💡 เปิดไฟฉาย</button>
+            </div>
         </div>
 
         <div class="camera-container">
@@ -384,6 +403,8 @@
         var isScanning = false;
         var debugMode = false;
         var scanAttempts = 0;
+        var videoTrack = null;
+        var torchEnabled = false;
 
         var code39Patterns = {
             '0': [1,0,1,0,0,1,1,0,1,1,0,1],
@@ -447,14 +468,53 @@
 
         function startCamera() {
             log('กำลังเปิดกล้อง...');
-            navigator.mediaDevices.getUserMedia({
-                video: { 
+            
+            var constraints = {
+                video: {
                     facingMode: 'environment',
                     width: { ideal: 1920 },
                     height: { ideal: 1080 }
-                }
-            }).then(function(stream) {
+                },
+                audio: false
+            };
+            
+            navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
                 video.srcObject = stream;
+                
+                videoTrack = stream.getVideoTracks()[0];
+                var capabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
+                var settings = videoTrack.getSettings ? videoTrack.getSettings() : {};
+                
+                log('Camera capabilities: ' + JSON.stringify(capabilities));
+                log('Camera settings: ' + JSON.stringify(settings));
+                
+                if (capabilities.torch) {
+                    document.getElementById('torchBtn').style.display = 'inline-block';
+                    log('อุปกรณ์รองรับไฟฉาย');
+                }
+                
+                if (videoTrack.applyConstraints) {
+                    var advancedConstraints = {};
+                    
+                    if (capabilities.exposureMode && capabilities.exposureMode.includes('continuous')) {
+                        advancedConstraints.exposureMode = 'continuous';
+                    }
+                    
+                    if (capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
+                        advancedConstraints.focusMode = 'continuous';
+                    }
+                    
+                    if (Object.keys(advancedConstraints).length > 0) {
+                        videoTrack.applyConstraints({ advanced: [advancedConstraints] })
+                            .then(function() {
+                                log('ปรับการตั้งค่ากล้องสำเร็จ');
+                            })
+                            .catch(function(err) {
+                                log('ไม่สามารถปรับการตั้งค่า: ' + err.message);
+                            });
+                    }
+                }
+                
                 video.onloadedmetadata = function() {
                     video.play();
                     log('กล้องเปิดสำเร็จ: ' + video.videoWidth + 'x' + video.videoHeight);
@@ -463,7 +523,7 @@
                 };
             }).catch(function(err) {
                 log('Error: ' + err.message);
-                alert('ไม่สามารถเข้าถึงกล้องได้: ' + err.message);
+                alert('ไม่สามารถเข้าถึงกล้องได้: ' + err.message + '\n\nกรุณาตรวจสอบ:\n1. อนุญาตการเข้าถึงกล้อง\n2. ใช้ HTTPS หรือ localhost\n3. ไม่มีแอพอื่นใช้กล้องอยู่');
             });
         }
 
@@ -669,6 +729,30 @@
             history = [];
             updateHistory();
             log('ล้างประวัติ');
+        }
+
+        function toggleTorch() {
+            if (!videoTrack) return;
+            
+            torchEnabled = !torchEnabled;
+            var torchBtn = document.getElementById('torchBtn');
+            
+            videoTrack.applyConstraints({
+                advanced: [{ torch: torchEnabled }]
+            }).then(function() {
+                if (torchEnabled) {
+                    torchBtn.textContent = '💡 ปิดไฟฉาย';
+                    torchBtn.className = 'torch-btn torch-on';
+                    log('เปิดไฟฉาย');
+                } else {
+                    torchBtn.textContent = '💡 เปิดไฟฉาย';
+                    torchBtn.className = 'torch-btn';
+                    log('ปิดไฟฉาย');
+                }
+            }).catch(function(err) {
+                log('ไม่สามารถเปิด/ปิดไฟฉาย: ' + err.message);
+                alert('ไม่สามารถควบคุมไฟฉายได้');
+            });
         }
 
         window.addEventListener('load', function() {
