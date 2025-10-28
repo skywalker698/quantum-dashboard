@@ -898,7 +898,6 @@ function handleScanSuccess(data, confidence) {
     lastScanned = data;
     resultDiv.innerHTML = data + '<span class="cursor-blink"></span>';
 
-    // ส่งข้อมูลไปยังเซิร์ฟเวอร์ (ตัวเดียวพอ)
     sendToServer(data);
 
     const now = new Date();
@@ -910,15 +909,14 @@ function handleScanSuccess(data, confidence) {
     showSuccess();
     log(`✅ สแกนสำเร็จ: ${data} (confidence: ${confidence.toFixed(0)}%)`);
 
-    if (navigator.vibrate) {
-        navigator.vibrate(200);
-    }
+    if (navigator.vibrate) navigator.vibrate(200);
 
-    // ✅ ปลดล็อกหลัง 2 วินาที เพื่อให้สแกนใหม่ได้
+    // ✅ ปลดล็อกหลัง 2 วิ
     setTimeout(() => {
         isProcessing = false;
     }, 2000);
 }
+
 
 function sendToServer(barcode) {
     fetch('http://192.168.1.35:8080/scan', {
