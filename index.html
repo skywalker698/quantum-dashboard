@@ -1,154 +1,524 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#0f172a">
-  <title>Quantum Sugar Dashboard</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    body { font-family: 'Prompt', sans-serif; background-color: #f8fafc; }
-    .container { max-width: 1300px; margin-top: 40px; margin-bottom: 80px; }
-    .card, .chart-container { background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); padding: 24px; margin-bottom: 24px; }
-    .navbar { background-color: #0f172a; }
-    .navbar-brand, .nav-link { color: #fff !important; }
-    footer { background: #0f172a; color: #fff; padding: 10px; text-align: center; position: fixed; bottom: 0; width: 100%; }
-    #forecastChart { display: none; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>Barcode Scanner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 100%;
+            padding: 10px;
+        }
+
+        .header {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .header h1 {
+            color: #667eea;
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .status-ready {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-scanning {
+            background: #fff3cd;
+            color: #856404;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .camera-container {
+            position: relative;
+            background: black;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 15px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+
+        #video {
+            width: 100%;
+            display: block;
+        }
+
+        .scan-line {
+            position: absolute;
+            left: 10%;
+            right: 10%;
+            top: 50%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #ff0000, transparent);
+            box-shadow: 0 0 10px #ff0000;
+            animation: scan 2s ease-in-out infinite;
+        }
+
+        @keyframes scan {
+            0%, 100% { transform: translateY(-20px); opacity: 0.5; }
+            50% { transform: translateY(20px); opacity: 1; }
+        }
+
+        .scan-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+        }
+
+        .scan-frame {
+            width: 80%;
+            height: 120px;
+            border: 3px solid rgba(255, 255, 255, 0.5);
+            border-radius: 10px;
+            position: relative;
+        }
+
+        .scan-frame::before,
+        .scan-frame::after {
+            content: '';
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border: 3px solid #00ff00;
+        }
+
+        .scan-frame::before {
+            top: -3px;
+            left: -3px;
+            border-right: none;
+            border-bottom: none;
+        }
+
+        .scan-frame::after {
+            bottom: -3px;
+            right: -3px;
+            border-left: none;
+            border-top: none;
+        }
+
+        .result-container {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .result-label {
+            color: #667eea;
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .result-value {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 24px;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+            text-align: center;
+            min-height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            word-break: break-all;
+            position: relative;
+        }
+
+        .cursor-blink {
+            display: inline-block;
+            width: 3px;
+            height: 30px;
+            background: white;
+            margin-left: 5px;
+            animation: blink 1s step-end infinite;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        .empty-result {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 16px;
+            font-weight: normal;
+        }
+
+        .history-container {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .history-header h3 {
+            color: #667eea;
+            font-size: 16px;
+        }
+
+        .clear-btn {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-size: 12px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .history-item {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .history-data {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 5px;
+            word-break: break-all;
+        }
+
+        .history-time {
+            font-size: 11px;
+            color: #999;
+        }
+
+        .empty-history {
+            text-align: center;
+            color: #999;
+            padding: 30px;
+            font-size: 14px;
+        }
+
+        .success-indicator {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            background: rgba(76, 175, 80, 0.95);
+            color: white;
+            padding: 30px 40px;
+            border-radius: 20px;
+            font-size: 20px;
+            font-weight: bold;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            z-index: 1000;
+            animation: successPop 0.5s ease-out;
+        }
+
+        @keyframes successPop {
+            0% { transform: translate(-50%, -50%) scale(0); }
+            50% { transform: translate(-50%, -50%) scale(1.1); }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+        }
+
+        canvas {
+            display: none;
+        }
+    </style>
 </head>
 <body>
+    <div class="container">
+        <div class="header">
+            <h1>📱 Barcode Scanner</h1>
+            <p>Code 39 - Auto Send</p>
+            <div id="status" class="status-badge status-ready">พร้อมสแกน</div>
+        </div>
 
-<nav class="navbar navbar-expand-lg shadow-sm">
-  <div class="container">
-    <a class="navbar-brand" href="#">🏭 Quantum Sugar AI</a>
-    <ul class="navbar-nav ms-auto">
-      <li class="nav-item"><a class="nav-link" href="#">สรุป</a></li>
-      <li class="nav-item"><a class="nav-link" href="#">กราฟ</a></li>
-      <li class="nav-item"><a class="nav-link" href="#">ตาราง</a></li>
-    </ul>
-  </div>
-</nav>
+        <div class="camera-container">
+            <video id="video" autoplay playsinline></video>
+            <div class="scan-overlay">
+                <div class="scan-frame"></div>
+            </div>
+            <div class="scan-line"></div>
+        </div>
 
-<div class="container">
-  <div class="row text-center">
-    <div class="col-md-3"><div class="card"><h5>รายรับรวม</h5><h3 id="totalRevenue">-</h3></div></div>
-    <div class="col-md-3"><div class="card"><h5>กำไรรวม</h5><h3 id="totalProfit">-</h3></div></div>
-    <div class="col-md-3"><div class="card"><h5>ปริมาณอ้อย</h5><h3 id="totalCane">-</h3></div></div>
-    <div class="col-md-3"><div class="card"><h5>ROI เฉลี่ย</h5><h3 id="avgROI">-</h3></div></div>
-  </div>
+        <div class="result-container">
+            <div class="result-label">
+                <span>✅</span>
+                ข้อมูลที่สแกนได้:
+            </div>
+            <div id="result" class="result-value">
+                <span class="empty-result">รอการสแกน...</span>
+            </div>
+        </div>
 
-  <div class="text-end mb-3">
-    <button id="toggleForecast" class="btn btn-primary">🎯 ดู AI Forecast Simulation</button>
-  </div>
+        <div class="history-container">
+            <div class="history-header">
+                <h3>📋 ประวัติการสแกน</h3>
+                <button class="clear-btn" onclick="clearHistory()">ล้าง</button>
+            </div>
+            <div id="history"></div>
+        </div>
+    </div>
 
-  <div class="chart-container">
-    <h4 class="mb-4 text-center">📈 แนวโน้มผลประกอบการย้อนหลัง 10 ปี</h4>
-    <canvas id="trendChart" height="100"></canvas>
-  </div>
+    <canvas id="canvas"></canvas>
 
-  <div class="chart-container" id="forecastContainer">
-    <h4 class="mb-4 text-center">🔮 AI Forecast Simulation</h4>
-    <canvas id="forecastChart" height="100"></canvas>
-  </div>
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const resultDiv = document.getElementById('result');
+        const historyDiv = document.getElementById('history');
+        const statusDiv = document.getElementById('status');
+        
+        let scanInterval;
+        let history = [];
+        let lastScanned = '';
+        let isScanning = false;
 
-  <div class="chart-container">
-    <h4 class="mb-4 text-center">📊 รายละเอียดข้อมูล</h4>
-    <table class="table table-bordered table-striped">
-      <thead class="table-dark">
-        <tr>
-          <th>ปี</th><th>รายรับ</th><th>ต้นทุน</th><th>กำไร</th><th>ปริมาณอ้อย</th><th>Yield</th><th>ROI (%)</th>
-        </tr>
-      </thead>
-      <tbody id="tableBody"></tbody>
-    </table>
-  </div>
-</div>
+        const code39Map = {
+            '100101101101': '0', '101101001011': '1', '100110101011': '2',
+            '101011010011': '3', '100101101011': '4', '101101010011': '5',
+            '100110110011': '6', '100101011011': '7', '101101001101': '8',
+            '100110100111': '9', '101010010011': 'A', '100101100101': 'B',
+            '101010011001': 'C', '100101011001': 'D', '101011001001': 'E',
+            '100110100101': 'F', '100101001101': 'G', '101010010101': 'H',
+            '100101010011': 'I', '101010100011': 'J', '101001010011': 'K',
+            '100101100110': 'L', '101001010110': 'M', '100101010110': 'N',
+            '101001101001': 'O', '100101101001': 'P', '101010110001': 'Q',
+            '100101011010': 'R', '101001010101': 'S', '100101101010': 'T',
+            '110010010011': 'U', '110010100101': 'V', '110010101001': 'W',
+            '110001010101': 'X', '110010010101': 'Y', '110001011001': 'Z',
+            '100100101101': '-', '101001001011': '.', '110100100101': ' ',
+            '100100100101': '*'
+        };
 
-<footer>
-  ⚙️ Quantum Sugar AI | พยากรณ์เชิงลึกด้วยสถิติและควอนตัม | 2024
-</footer>
+        function startCamera() {
+            navigator.mediaDevices.getUserMedia({
+                video: { 
+                    facingMode: 'environment',
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                }
+            }).then(function(stream) {
+                video.srcObject = stream;
+                video.onloadedmetadata = function() {
+                    video.play();
+                    startScanning();
+                    updateStatus('กำลังสแกน...', 'scanning');
+                };
+            }).catch(function(err) {
+                alert('ไม่สามารถเข้าถึงกล้องได้: ' + err.message);
+            });
+        }
 
-<script>
-const api = "https://script.google.com/macros/s/AKfycbzrVLLUSjKiq7CDpX6H1EwYzXmo_hRiqRKMiextzxUidywAY_kfNXeyHUl8nDJG6KIyzw/exec";
-let forecastVisible = false;
+        function updateStatus(text, type) {
+            statusDiv.textContent = text;
+            statusDiv.className = 'status-badge status-' + type;
+        }
 
-async function fetchData() {
-  const res = await fetch(api);
-  const data = await res.json();
+        function startScanning() {
+            if (isScanning) return;
+            isScanning = true;
+            
+            scanInterval = setInterval(function() {
+                if (video.readyState === 4) {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    ctx.drawImage(video, 0, 0);
+                    
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const result = scanBarcode(imageData);
+                    
+                    if (result && result !== lastScanned) {
+                        handleScanSuccess(result);
+                    }
+                }
+            }, 100);
+        }
 
-  const totalRevenue = data.reduce((sum, d) => sum + parseFloat(d.revenue), 0);
-  const totalProfit = data.reduce((sum, d) => sum + (parseFloat(d.revenue) - parseFloat(d.cost)), 0);
-  const totalCane = data.reduce((sum, d) => sum + parseFloat(d.totalCane || 0), 0);
-  const avgROI = (data.reduce((sum, d) => sum + parseFloat(d.roi || 0), 0) / data.length).toFixed(2);
+        function scanBarcode(imageData) {
+            const width = imageData.width;
+            const height = imageData.height;
+            const scanY = Math.floor(height / 2);
+            const data = imageData.data;
+            
+            const bars = [];
+            let lastValue = null;
+            let count = 0;
+            
+            for (let x = 0; x < width; x++) {
+                const idx = (scanY * width + x) * 4;
+                const brightness = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
+                const isWhite = brightness > 128 ? 1 : 0;
+                
+                if (lastValue === null) {
+                    lastValue = isWhite;
+                    count = 1;
+                } else if (lastValue === isWhite) {
+                    count++;
+                } else {
+                    if (count > 2) {
+                        bars.push({ value: lastValue, width: count });
+                    }
+                    lastValue = isWhite;
+                    count = 1;
+                }
+            }
+            
+            return decodeCode39(bars);
+        }
 
-  document.getElementById("totalRevenue").innerText = totalRevenue.toLocaleString() + " ฿";
-  document.getElementById("totalProfit").innerText = totalProfit.toLocaleString() + " ฿";
-  document.getElementById("totalCane").innerText = totalCane.toLocaleString() + " ตัน";
-  document.getElementById("avgROI").innerText = avgROI + " %";
+        function decodeCode39(bars) {
+            if (bars.length < 20) return null;
+            
+            const widths = bars.map(function(b) { return b.width; }).sort(function(a, b) { return a - b; });
+            const narrowWidth = widths[Math.floor(widths.length * 0.3)];
+            const threshold = narrowWidth * 1.8;
+            
+            let pattern = '';
+            for (let i = 0; i < bars.length; i++) {
+                pattern += bars[i].width < threshold ? '0' : '1';
+            }
+            
+            let decoded = '';
+            let foundStart = false;
+            
+            for (let i = 0; i < pattern.length - 12; i++) {
+                const segment = pattern.substring(i, i + 12);
+                
+                if (code39Map[segment]) {
+                    const char = code39Map[segment];
+                    if (char === '*') {
+                        if (!foundStart) {
+                            foundStart = true;
+                            continue;
+                        } else {
+                            break;
+                        }
+                    }
+                    if (foundStart) {
+                        decoded += char;
+                    }
+                }
+            }
+            
+            return decoded.length > 2 ? decoded : null;
+        }
 
-  const years = data.map(d => d.year);
-  const profits = data.map(d => parseFloat(d.revenue) - parseFloat(d.cost));
-  const rois = data.map(d => parseFloat(d.roi));
-  const yields = data.map(d => parseFloat(d.yield));
-  const canes = data.map(d => parseFloat(d.totalCane));
+        function handleScanSuccess(data) {
+            lastScanned = data;
+            
+            resultDiv.innerHTML = data + '<span class="cursor-blink"></span>';
+            
+            const now = new Date();
+            const time = now.toLocaleTimeString('th-TH');
+            history.unshift({ data: data, time: time });
+            if (history.length > 10) history.pop();
+            updateHistory();
+            
+            showSuccess();
+            sendData(data);
+            
+            if (navigator.vibrate) {
+                navigator.vibrate(200);
+            }
+        }
 
-  new Chart(document.getElementById('trendChart').getContext('2d'), {
-    type: 'line',
-    data: {
-      labels: years,
-      datasets: [
-        { label: 'กำไร (บาท)', data: profits, borderColor: '#10b981', fill: false },
-        { label: 'Yield', data: yields, borderColor: '#3b82f6', fill: false },
-        { label: 'ปริมาณอ้อย', data: canes, borderColor: '#f59e0b', fill: false },
-        { label: 'ROI (%)', data: rois, borderColor: '#ef4444', fill: false },
-      ]
-    },
-    options: { responsive: true, scales: { y: { beginAtZero: false } } }
-  });
+        function sendData(data) {
+            console.log('ส่งข้อมูล:', data);
+        }
 
-  const tbody = document.getElementById("tableBody");
-  data.forEach(d => {
-    const profit = parseFloat(d.revenue) - parseFloat(d.cost);
-     tbody.innerHTML += `
-    <tr>
-      <td>${d.year}</td><td>${(+d.revenue).toLocaleString()}</td><td>${(+d.cost).toLocaleString()}</td>
-      <td>${profit.toLocaleString()}</td><td>${(+d.totalCane).toLocaleString()}</td>
-      <td>${d.yield}</td><td>${parseFloat(d.roi).toFixed(2)}</td>
-    </tr>`;
-  });
+        function showSuccess() {
+            const indicator = document.createElement('div');
+            indicator.className = 'success-indicator';
+            indicator.textContent = '✓ สแกนสำเร็จ';
+            document.body.appendChild(indicator);
+            
+            setTimeout(function() {
+                indicator.remove();
+            }, 500);
+        }
 
-  // AI Forecast Simulation (dummy for now)
-  const futureYears = ["2568", "2569", "2570"];
-  const forecastData = {
-    revenue: [1600000000, 1720000000, 1800000000],
-    cost: [1080000000, 1150000000, 1200000000],
-    cane: [1350000, 1380000, 1420000],
-    yield: [121.5, 122.8, 124.0],
-    roi: [48.1, 49.5, 50.2],
-  };
-  const forecastCtx = document.getElementById("forecastChart").getContext("2d");
-  const forecastChart = new Chart(forecastCtx, {
-    type: 'line',
-    data: {
-      labels: futureYears,
-      datasets: [
-        { label: 'กำไร (บาท)', data: forecastData.revenue.map((r, i) => r - forecastData.cost[i]), borderColor: '#0ea5e9', fill: false },
-        { label: 'Yield', data: forecastData.yield, borderColor: '#6366f1', fill: false },
-        { label: 'ปริมาณอ้อย', data: forecastData.cane, borderColor: '#f59e0b', fill: false },
-        { label: 'ROI (%)', data: forecastData.roi, borderColor: '#dc2626', fill: false },
-      ]
-    },
-    options: { responsive: true, scales: { y: { beginAtZero: false } } }
-  });
+        function updateHistory() {
+            if (history.length === 0) {
+                historyDiv.innerHTML = '<div class="empty-history">ยังไม่มีประวัติการสแกน</div>';
+                return;
+            }
+            
+            historyDiv.innerHTML = history.map(function(item) {
+                return '<div class="history-item">' +
+                    '<div class="history-data">' + item.data + '</div>' +
+                    '<div class="history-time">⏰ ' + item.time + '</div>' +
+                    '</div>';
+            }).join('');
+        }
 
-  document.getElementById("toggleForecast").addEventListener("click", () => {
-    forecastVisible = !forecastVisible;
-    document.getElementById("forecastChart").style.display = forecastVisible ? 'block' : 'none';
-  });
-}
+        function clearHistory() {
+            history = [];
+            updateHistory();
+        }
 
-window.addEventListener("DOMContentLoaded", fetchData);
-</script>
+        window.addEventListener('load', function() {
+            updateHistory();
+            startCamera();
+        });
+    </script>
 </body>
 </html>
