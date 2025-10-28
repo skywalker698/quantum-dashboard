@@ -781,116 +781,120 @@
             }
         }
 
-      function decodeCode39Strict(bars) {
-            if (bars.length < 20) return null;
-            
-            // คำนวณความกว้างเฉลี่ยของแต่ละประเภท bar
-            const widths = bars.map(b => b.width).sort((a, b) => a - b);
-            
-            // ใช้ k-means แบบง่ายแยก narrow และ wide
-            let narrowSum = 0, narrowCount = 0;
-            let wideSum = 0, wideCount = 0;
-            
-            const midpoint = widths[Math.floor(widths.length / 2)];
-            
-            for (const w of widths) {
-                if (w < midpoint) {
-                    narrowSum += w;
-                    narrowCount++;
-                } else {
-                    wideSum += w;
-                    wideCount++;
-                }
-            }
-            
-            if (narrowCount === 0 || wideCount === 0) return null;
-            
-            const narrowAvg = narrowSum / narrowCount;
-            const wideAvg = wideSum / wideCount;
-            const ratio = wideAvg / narrowAvg;
-            
-            // Code 39 ต้องมี ratio 2:1 ถึง 3:1 แต่ผ่อนปรนให้สแกนง่ายขึ้น
-            if (ratio < 1.5 || ratio > 4.0) {
-                if (debugMode) {
-                    log(`✗ Ratio ผิด: ${ratio.toFixed(2)}`);
-                }
-                return null;
-            }
-            
-            const threshold = (narrowAvg + wideAvg) / 2;
-            
-            // แปลงเป็น pattern (0=narrow, 1=wide)
-            const patterns = [];
-            for (let i = 0; i < bars.length - 8; i++) {
-                const segment = bars.slice(i, i + 9);
-                const pattern = segment.map(b => b.width >= threshold ? '1' : '0').join('');
-                const char = patternToChar[pattern];
-                
-                if (char) {
-                    patterns.push({ pattern, char, index: i });
-                }
-            }
-            
-            if (patterns.length === 0) return null;
-            
-            // ค้นหา start marker (*)
-            let startIndex = -1;
-            for (let i = 0; i < patterns.length; i++) {
-                if (patterns[i].char === '*') {
-                    startIndex = i;
-                    break;
-                }
-            }
-            
-            if (startIndex === -1) {
-                if (debugMode) {
-                    log('✗ ไม่พบ START marker');
-                }
-                return null;
-            }
-            
-            // ถอดรหัสตัวอักษร
-            let decoded = '';
-            let i = startIndex + 1;
-            
-            while (i < patterns.length) {
-                const char = patterns[i].char;
-                
-                if (!char) {
-                    i++;
-                    continue;
-                }
-                
-                if (char === '*') {
-                    // พบ STOP marker
-                    if (decoded.length > 0) {
-                        if (debugMode) {
-                            log(`✓ ถอดรหัสดิบ: ${decoded}`);
-                        }
-                        return decoded;
-                    }
-                    break;
-                }
-                
-                decoded += char;
-                i++;
-                
-                // ป้องกันถอดรหัสยาวเกินไป
-                if (decoded.length > 50) {
-                    break;
-                }
-            }
-            
-            // ถ้าถอดรหัสได้แต่ไม่มี STOP marker ก็ยอมรับถ้ามีอย่างน้อย 3 ตัว
-            if (decoded.length >= 3) {
-                if (debugMode) {
-                    log(`⚠ ถอดรหัสดิบ (ไม่มี STOP): ${decoded}`);
-                }
-                return decoded;
-            }
-            
-            return null;
-        }
+      // ฟังก์ชันถอดรหัส Code39 แบบปรับความยืดหยุ่นและแก้ noise
+function decodeCode39Strict(bars) {
+  // ตัวแปลง pattern → ตัวอักษร Code39 มาตรฐาน
+  const patternToChar = {
+    '101000111011101': '0',
+    '111010001010111': '1',
+    '101110001010111': '2',
+    '111011100010101': '3',
+    '101000111010111': '4',
+    '111010001110101': '5',
+    '101110001110101': '6',
+    '101000101110111': '7',
+    '111010001011101': '8',
+    '101110001011101': '9',
+    '111010100010111': 'A',
+    '101110100010111': 'B',
+    '111011101000101': 'C',
+    '101000111010111': 'D',
+    '111010001110101': 'E',
+    '101110001110101': 'F',
+    '101000101110111': 'G',
+    '111010001011101': 'H',
+    '101110001011101': 'I',
+    '101000111011101': 'J',
+    '111010100011101': 'K',
+    '101110100011101': 'L',
+    '111011101000111': 'M',
+    '101000111010111': 'N',
+    '111010001110111': 'O',
+    '101110001110111': 'P',
+    '101000101110111': 'Q',
+    '111010001011111': 'R',
+    '101110001011111': 'S',
+    '101000111011111': 'T',
+    '111010100010101': 'U',
+    '101110100010101': 'V',
+    '111011101000101': 'W',
+    '101000111010101': 'X',
+    '111010001110101': 'Y',
+    '101110001110101': 'Z',
+    '100010111011101': '-',
+    '111010001010101': '.',
+    '100010101110111': ' ',
+    '100010111010111': '$',
+    '100011101010111': '/',
+    '100010101011111': '+',
+    '100010111011111': '%',
+    '100010111011101': '*', // Start/Stop
+  };
+
+  if (!bars || bars.length < 9) return null;
+
+  // === ขั้นตอน Normalize ความกว้างของแท่ง ===
+  const widths = bars.map(b => b.width);
+  const narrowAvg = average(widths.filter(w => w < median(widths)));
+  const wideAvg = average(widths.filter(w => w >= median(widths)));
+  const ratio = wideAvg / narrowAvg;
+
+  // กรอง ratio ให้อยู่ในช่วงที่เป็นไปได้จริงของ Code39
+  if (ratio < 1.8 || ratio > 3.2) return null;
+
+  // Normalize bar width (กันเอียงหรือแสงไม่สม่ำเสมอ)
+  const avgWidth = (narrowAvg * 6 + wideAvg * 3) / 9;
+  bars = bars.map(b => ({ value: b.value, width: b.width / avgWidth }));
+
+  // === เริ่มแปลง pattern ===
+  let decoded = '';
+  let threshold = (narrowAvg + wideAvg) / 2;
+  const thresholds = [threshold * 0.9, threshold, threshold * 1.1];
+  let bestDecoded = '';
+
+  for (const t of thresholds) {
+    let result = '';
+    for (let i = 0; i <= bars.length - 9; i += 9) {
+      const segment = bars.slice(i, i + 9);
+      const pattern = segment.map(b => b.width >= t ? '1' : '0').join('');
+      const char = patternToChar[pattern];
+      if (char) result += char;
+    }
+
+    // ถ้ามี start/stop * ครบ ถือว่าใช้ได้
+    if (result.includes('*')) {
+      bestDecoded = result;
+      break;
+    }
+  }
+
+  if (!bestDecoded) return null;
+
+  // === ตัด start/stop * ออกและล้าง noise ===
+  bestDecoded = bestDecoded.replace(/^[^*]*\*/, '').replace(/\*[^*]*$/, '');
+  bestDecoded = bestDecoded.replace(/^[^A-Z0-9\-\. \$\/\+\%]+/, '')
+                           .replace(/[^A-Z0-9\-\. \$\/\+\%]+$/, '');
+
+  // === (ถ้าต้องการเฉพาะตัวเลข) กรองเพิ่ม ===
+  // bestDecoded = bestDecoded.replace(/[^0-9]/g, '');
+
+  return bestDecoded || null;
+
+
+  // === Helper ===
+  function average(arr) {
+    if (!arr.length) return 0;
+    return arr.reduce((a, b) => a + b, 0) / arr.length;
+  }
+
+  function median(arr) {
+    if (!arr.length) return 0;
+    const sorted = [...arr].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  }
+}
+
 
         function handleScanSuccess(data, confidence) {
             lastScanned = data;
