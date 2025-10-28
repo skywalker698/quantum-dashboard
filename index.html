@@ -894,7 +894,7 @@
 
 
 function sendToServer(barcode) {
-    fetch('http://192.168.1.35:8080/scan', {
+    fetch('http://192.168.1.35:8080/scan', {   // 👈 แก้ IP ตรงนี้
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ barcode: barcode })
