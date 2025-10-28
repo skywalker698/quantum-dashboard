@@ -833,6 +833,7 @@
 
     let decoded = '';
     let i = startIndex + 1;
+    let stopFound = false;
 
     while (i < patterns.length) {
         const char = patternToChar[patterns[i].pattern];
@@ -842,15 +843,7 @@
         }
 
         if (char === '*') {
-            if (decoded.length > 0) {
-                // 🧩 กรองเฉพาะตัวเลข
-                let digitsOnly = decoded.replace(/[^0-9]/g, '');
-                // 🧩 แสดงเฉพาะ 6 หลักสุดท้าย (กันกรณีมีเลขเกิน)
-                if (digitsOnly.length > 6) {
-                    digitsOnly = digitsOnly.slice(-6);
-                }
-                return digitsOnly || null;
-            }
+            stopFound = true;
             break;
         }
 
@@ -859,16 +852,23 @@
         if (decoded.length > 50) break;
     }
 
-    if (decoded.length >= 3) {
-        let digitsOnly = decoded.replace(/[^0-9]/g, '');
-        if (digitsOnly.length > 6) {
-            digitsOnly = digitsOnly.slice(-6);
+    // 🧩 กรองเฉพาะตัวเลข
+    let digitsOnly = decoded.replace(/[^0-9]/g, '');
+
+    // 🧩 ถ้าเลขเกิน 6 ตัว (เช่น 0000091) และเจอ STOP marker หรือขาดหาย
+    // ให้ตัดเหลือ 6 หลักสุดท้าย แต่ถ้าเลขลงท้าย '1' ที่เกิน ให้ตัดออก
+    if (digitsOnly.length > 6) {
+        // ถ้าตัวท้ายเกินมาเพราะการอ่าน stop pattern
+        if (digitsOnly.endsWith('1')) {
+            digitsOnly = digitsOnly.slice(0, -1);
         }
-        return digitsOnly || null;
+        digitsOnly = digitsOnly.slice(-6);
     }
 
-    return null;
+    // 🧩 ถ้ายาวน้อยกว่า 6 ก็แสดงเท่าที่มี
+    return digitsOnly || null;
 }
+
 
 
 
