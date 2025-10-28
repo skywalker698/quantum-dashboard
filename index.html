@@ -894,7 +894,7 @@
         }
 
       function sendData(data) {
-    fetch('http://192.168.1.35:8080/scan', {   // เปลี่ยน IP ให้ตรงกับเครื่องรัน Flask
+    fetch('http://192.168.1.35:8080/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ barcode: data })
@@ -902,6 +902,7 @@
       .then(res => console.log('ส่งสำเร็จ:', res))
       .catch(err => console.error('ส่งไม่สำเร็จ:', err));
 }
+
 
 
         function showSuccess() {
