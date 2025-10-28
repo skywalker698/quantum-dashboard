@@ -781,9 +781,7 @@
             }
         }
 
-      // ฟังก์ชันถอดรหัส Code39 แบบปรับความยืดหยุ่นและแก้ noise
-function decodeCode39Strict(bars) {
-  // ตัวแปลง pattern → ตัวอักษร Code39 มาตรฐาน
+ function decodeCode39Strict(bars) {
   const patternToChar = {
     '101000111011101': '0',
     '111010001010111': '1',
@@ -795,98 +793,46 @@ function decodeCode39Strict(bars) {
     '101000101110111': '7',
     '111010001011101': '8',
     '101110001011101': '9',
-    '111010100010111': 'A',
-    '101110100010111': 'B',
-    '111011101000101': 'C',
-    '101000111010111': 'D',
-    '111010001110101': 'E',
-    '101110001110101': 'F',
-    '101000101110111': 'G',
-    '111010001011101': 'H',
-    '101110001011101': 'I',
-    '101000111011101': 'J',
-    '111010100011101': 'K',
-    '101110100011101': 'L',
-    '111011101000111': 'M',
-    '101000111010111': 'N',
-    '111010001110111': 'O',
-    '101110001110111': 'P',
-    '101000101110111': 'Q',
-    '111010001011111': 'R',
-    '101110001011111': 'S',
-    '101000111011111': 'T',
-    '111010100010101': 'U',
-    '101110100010101': 'V',
-    '111011101000101': 'W',
-    '101000111010101': 'X',
-    '111010001110101': 'Y',
-    '101110001110101': 'Z',
-    '100010111011101': '-',
-    '111010001010101': '.',
-    '100010101110111': ' ',
-    '100010111010111': '$',
-    '100011101010111': '/',
-    '100010101011111': '+',
-    '100010111011111': '%',
-    '100010111011101': '*', // Start/Stop
+    '100010111011101': '*', // start/stop
   };
 
   if (!bars || bars.length < 9) return null;
 
-  // === ขั้นตอน Normalize ความกว้างของแท่ง ===
+  // คำนวณค่าเฉลี่ยความกว้างแท่ง
   const widths = bars.map(b => b.width);
   const narrowAvg = average(widths.filter(w => w < median(widths)));
   const wideAvg = average(widths.filter(w => w >= median(widths)));
   const ratio = wideAvg / narrowAvg;
 
-  // กรอง ratio ให้อยู่ในช่วงที่เป็นไปได้จริงของ Code39
-  if (ratio < 1.8 || ratio > 3.2) return null;
+  // ขยายช่วง ratio ให้สแกนติดง่ายขึ้น
+  if (ratio < 1.3 || ratio > 4.5) return null;
 
-  // Normalize bar width (กันเอียงหรือแสงไม่สม่ำเสมอ)
-  const avgWidth = (narrowAvg * 6 + wideAvg * 3) / 9;
-  bars = bars.map(b => ({ value: b.value, width: b.width / avgWidth }));
-
-  // === เริ่มแปลง pattern ===
+  const threshold = (narrowAvg + wideAvg) / 2;
   let decoded = '';
-  let threshold = (narrowAvg + wideAvg) / 2;
-  const thresholds = [threshold * 0.9, threshold, threshold * 1.1];
-  let bestDecoded = '';
 
-  for (const t of thresholds) {
-    let result = '';
-    for (let i = 0; i <= bars.length - 9; i += 9) {
-      const segment = bars.slice(i, i + 9);
-      const pattern = segment.map(b => b.width >= t ? '1' : '0').join('');
-      const char = patternToChar[pattern];
-      if (char) result += char;
-    }
-
-    // ถ้ามี start/stop * ครบ ถือว่าใช้ได้
-    if (result.includes('*')) {
-      bestDecoded = result;
-      break;
-    }
+  // อ่านเป็นช่วง ๆ ละ 9 bar (1 ตัวอักษร)
+  for (let i = 0; i <= bars.length - 9; i += 9) {
+    const segment = bars.slice(i, i + 9);
+    const pattern = segment.map(b => b.width >= threshold ? '1' : '0').join('');
+    const char = patternToChar[pattern];
+    if (char) decoded += char;
   }
 
-  if (!bestDecoded) return null;
+  if (!decoded.includes('*')) return null;
 
-  // === ตัด start/stop * ออกและล้าง noise ===
-  bestDecoded = bestDecoded.replace(/^[^*]*\*/, '').replace(/\*[^*]*$/, '');
-  bestDecoded = bestDecoded.replace(/^[^A-Z0-9\-\. \$\/\+\%]+/, '')
-                           .replace(/[^A-Z0-9\-\. \$\/\+\%]+$/, '');
+  // ตัด * ต้นและท้าย
+  decoded = decoded.replace(/^[^*]*\*/, '').replace(/\*[^*]*$/, '');
 
-  // === (ถ้าต้องการเฉพาะตัวเลข) กรองเพิ่ม ===
-  // bestDecoded = bestDecoded.replace(/[^0-9]/g, '');
+  // กรองให้เหลือเฉพาะตัวเลข
+  decoded = decoded.replace(/[^0-9]/g, '');
 
-  return bestDecoded || null;
+  return decoded || null;
 
-
-  // === Helper ===
+  // helper
   function average(arr) {
     if (!arr.length) return 0;
     return arr.reduce((a, b) => a + b, 0) / arr.length;
   }
-
   function median(arr) {
     if (!arr.length) return 0;
     const sorted = [...arr].sort((a, b) => a - b);
@@ -894,6 +840,7 @@ function decodeCode39Strict(bars) {
     return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
   }
 }
+
 
 
         function handleScanSuccess(data, confidence) {
