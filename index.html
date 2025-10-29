@@ -3,8 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
     <title>Barcode Scanner</title>
     <style>
         * {
@@ -40,12 +38,7 @@
             margin-bottom: 5px;
         }
 
-        .header p {
-            color: #666;
-            font-size: 14px;
-        }
-
-        .status-badge {
+        .connection-status {
             display: inline-block;
             padding: 8px 20px;
             border-radius: 20px;
@@ -54,12 +47,17 @@
             margin-top: 10px;
         }
 
-        .status-ready {
+        .status-connected {
             background: #d4edda;
             color: #155724;
         }
 
-        .status-scanning {
+        .status-disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-sending {
             background: #fff3cd;
             color: #856404;
             animation: pulse 1.5s infinite;
@@ -68,6 +66,42 @@
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.6; }
+        }
+
+        .ip-config {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            text-align: left;
+        }
+
+        .ip-config label {
+            display: block;
+            color: #333;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .ip-config input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            font-size: 16px;
+            font-family: monospace;
+        }
+
+        .ip-config button {
+            width: 100%;
+            margin-top: 10px;
+            padding: 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
         }
 
         .camera-container {
@@ -100,65 +134,12 @@
             50% { transform: translateY(20px); opacity: 1; }
         }
 
-        .scan-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            pointer-events: none;
-        }
-
-        .scan-frame {
-            width: 80%;
-            height: 120px;
-            border: 3px solid rgba(255, 255, 255, 0.5);
-            border-radius: 10px;
-            position: relative;
-        }
-
-        .scan-frame::before,
-        .scan-frame::after {
-            content: '';
-            position: absolute;
-            width: 30px;
-            height: 30px;
-            border: 3px solid #00ff00;
-        }
-
-        .scan-frame::before {
-            top: -3px;
-            left: -3px;
-            border-right: none;
-            border-bottom: none;
-        }
-
-        .scan-frame::after {
-            bottom: -3px;
-            right: -3px;
-            border-left: none;
-            border-top: none;
-        }
-
         .result-container {
             background: white;
             border-radius: 15px;
             padding: 20px;
             margin-bottom: 15px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        }
-
-        .result-label {
-            color: #667eea;
-            font-weight: bold;
-            font-size: 14px;
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
         }
 
         .result-value {
@@ -175,185 +156,37 @@
             align-items: center;
             justify-content: center;
             word-break: break-all;
-            position: relative;
         }
 
-        .cursor-blink {
-            display: inline-block;
-            width: 3px;
-            height: 30px;
-            background: white;
-            margin-left: 5px;
-            animation: blink 1s step-end infinite;
-        }
-
-        @keyframes blink {
-            0%, 50% { opacity: 1; }
-            51%, 100% { opacity: 0; }
-        }
-
-        .empty-result {
-            color: rgba(255, 255, 255, 0.5);
-            font-size: 16px;
-            font-weight: normal;
-        }
-
-        .debug-container {
-            background: white;
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 15px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        }
-
-        .debug-container h3 {
-            color: #667eea;
-            font-size: 16px;
-            margin-bottom: 10px;
-        }
-
-        .debug-info {
+        .send-log {
+            margin-top: 15px;
             background: #f8f9fa;
             padding: 10px;
             border-radius: 8px;
-            font-family: monospace;
-            font-size: 11px;
-            color: #333;
+            font-size: 12px;
             max-height: 200px;
             overflow-y: auto;
-            white-space: pre-wrap;
         }
 
-        .history-container {
-            background: white;
-            border-radius: 15px;
-            padding: 20px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            max-height: 300px;
-            overflow-y: auto;
-        }
-
-        .history-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-
-        .history-header h3 {
-            color: #667eea;
-            font-size: 16px;
-        }
-
-        .btn {
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 8px;
-            font-size: 12px;
-            cursor: pointer;
-            font-weight: bold;
-            margin: 5px;
-        }
-
-        .clear-btn {
-            background: #ff6b6b;
-        }
-
-        .torch-btn {
-            background: #f39c12;
-        }
-
-        .torch-on {
-            background: #27ae60;
-        }
-
-        .debug-btn {
-            background: #667eea;
-        }
-
-        .history-item {
-            background: #f8f9fa;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 10px;
-            border-left: 4px solid #667eea;
-        }
-
-        .history-data {
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            color: #333;
+        .log-entry {
+            padding: 5px;
             margin-bottom: 5px;
-            word-break: break-all;
+            border-left: 3px solid #667eea;
+            padding-left: 10px;
         }
 
-        .history-time {
-            font-size: 11px;
-            color: #999;
+        .log-success {
+            border-color: #28a745;
+            color: #28a745;
         }
 
-        .empty-history {
-            text-align: center;
-            color: #999;
-            padding: 30px;
-            font-size: 14px;
-        }
-
-        .success-indicator {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) scale(0);
-            background: rgba(76, 175, 80, 0.95);
-            color: white;
-            padding: 30px 40px;
-            border-radius: 20px;
-            font-size: 20px;
-            font-weight: bold;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-            z-index: 1000;
-        }
-
-        .success-show {
-            animation: successPop 0.8s ease-out;
-        }
-
-        @keyframes successPop {
-            0% { transform: translate(-50%, -50%) scale(0); }
-            50% { transform: translate(-50%, -50%) scale(1.1); }
-            80% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-            100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+        .log-error {
+            border-color: #dc3545;
+            color: #dc3545;
         }
 
         canvas {
             display: none;
-        }
-
-        #debugCanvas {
-            width: 100%;
-            max-width: 400px;
-            border: 2px solid #667eea;
-            border-radius: 8px;
-            margin-top: 10px;
-        }
-
-        .show-canvas #debugCanvas {
-            display: block;
-        }
-
-        .confidence-bar {
-            margin-top: 10px;
-            height: 8px;
-            background: #e0e0e0;
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        .confidence-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #ff6b6b, #f39c12, #27ae60);
-            transition: width 0.3s;
         }
     </style>
 </head>
@@ -361,47 +194,32 @@
     <div class="container">
         <div class="header">
             <h1>📱 Barcode Scanner</h1>
-            <p>Code 39 - Multi-Threshold + Validation</p>
-            <div id="status" class="status-badge status-ready">พร้อมสแกน</div>
-            <div>
-                <button class="btn debug-btn" onclick="toggleDebug()">🔍 Debug</button>
-                <button id="torchBtn" class="btn torch-btn" onclick="toggleTorch()" style="display:none;">💡 ไฟฉาย</button>
+            <div id="connectionStatus" class="connection-status status-disconnected">
+                ยังไม่ได้เชื่อมต่อ
+            </div>
+            
+            <div class="ip-config">
+                <label>🌐 IP Address ของ PC:</label>
+                <input type="text" id="serverIP" value="192.168.1.35" placeholder="เช่น 192.168.1.100">
+                <button onclick="updateServerIP()">💾 บันทึก IP</button>
+                <div style="margin-top: 10px; font-size: 12px; color: #666;">
+                    💡 หา IP จาก CMD: <code>ipconfig</code> (Windows) หรือ <code>ifconfig</code> (Mac/Linux)
+                </div>
             </div>
         </div>
 
         <div class="camera-container">
             <video id="video" autoplay playsinline></video>
-            <div class="scan-overlay">
-                <div class="scan-frame"></div>
-            </div>
             <div class="scan-line"></div>
         </div>
 
         <div class="result-container">
-            <div class="result-label">
-                <span>✅</span>
-                ข้อมูลที่สแกนได้:
+            <div class="result-value" id="result">รอการสแกน...</div>
+            
+            <div class="send-log" id="sendLog">
+                <strong>📡 Log การส่งข้อมูล:</strong>
+                <div id="logEntries"></div>
             </div>
-            <div id="result" class="result-value">
-                <span class="empty-result">รอการสแกน...</span>
-            </div>
-            <div class="confidence-bar">
-                <div id="confidenceFill" class="confidence-fill" style="width: 0%"></div>
-            </div>
-        </div>
-
-        <div id="debugContainer" class="debug-container" style="display: none;">
-            <h3>🔍 Debug Information</h3>
-            <div id="debugInfo" class="debug-info">รอข้อมูล...</div>
-            <canvas id="debugCanvas" width="640" height="100"></canvas>
-        </div>
-
-        <div class="history-container">
-            <div class="history-header">
-                <h3>📋 ประวัติการสแกน</h3>
-                <button class="btn clear-btn" onclick="clearHistory()">ล้าง</button>
-            </div>
-            <div id="history"></div>
         </div>
     </div>
 
@@ -411,27 +229,16 @@
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
-        const debugCanvas = document.getElementById('debugCanvas');
-        const debugCtx = debugCanvas.getContext('2d');
         const resultDiv = document.getElementById('result');
-        const historyDiv = document.getElementById('history');
-        const statusDiv = document.getElementById('status');
-        const debugInfo = document.getElementById('debugInfo');
-        const debugContainer = document.getElementById('debugContainer');
-        const confidenceFill = document.getElementById('confidenceFill');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const logEntries = document.getElementById('logEntries');
         
-        let scanInterval;
-        let history = [];
+        let serverIP = localStorage.getItem('serverIP') || '192.168.1.35';
+        document.getElementById('serverIP').value = serverIP;
+        
         let lastScanned = '';
-        let lastScanTime = 0;
-        let isScanning = false;
-        let debugMode = false;
-        let videoTrack = null;
-        let torchEnabled = false;
-        let recentScans = []; // สำหรับ voting
+        let recentScans = [];
 
-        // Code 39 character encoding (9 bars: 5 black, 4 white)
-        // Pattern: BWBWBWBWB where B=black, W=white, 1=wide, 0=narrow
         const code39Patterns = {
             '0': '000110100', '1': '100100001', '2': '001100001',
             '3': '101100000', '4': '000110001', '5': '100110000',
@@ -446,132 +253,119 @@
             'U': '110000001', 'V': '011000001', 'W': '111000000',
             'X': '010010001', 'Y': '110010000', 'Z': '011010000',
             '-': '010000101', '.': '110000100', ' ': '011000100',
-            '*': '010010100' // Start/Stop
+            '*': '010010100'
         };
 
-        // สร้าง reverse map
         const patternToChar = {};
         for (const [char, pattern] of Object.entries(code39Patterns)) {
             patternToChar[pattern] = char;
         }
 
-        function log(message) {
-            console.log(message);
-            if (debugMode) {
-                const timestamp = new Date().toLocaleTimeString('th-TH');
-                const lines = debugInfo.textContent.split('\n');
-                if (lines.length > 50) lines.length = 50;
-                debugInfo.textContent = `[${timestamp}] ${message}\n${lines.join('\n')}`;
+        function updateServerIP() {
+            const newIP = document.getElementById('serverIP').value.trim();
+            if (newIP) {
+                serverIP = newIP;
+                localStorage.setItem('serverIP', serverIP);
+                addLog(`✅ บันทึก IP: ${serverIP}`, 'success');
+                testConnection();
             }
         }
 
-        function toggleDebug() {
-            debugMode = !debugMode;
-            debugContainer.style.display = debugMode ? 'block' : 'none';
-            if (debugMode) {
-                debugContainer.classList.add('show-canvas');
-                log('เปิด Debug Mode');
-            } else {
-                debugContainer.classList.remove('show-canvas');
+        function addLog(message, type = 'info') {
+            const time = new Date().toLocaleTimeString('th-TH');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${time}] ${message}`;
+            logEntries.insertBefore(entry, logEntries.firstChild);
+            
+            // เก็บแค่ 10 รายการ
+            while (logEntries.children.length > 10) {
+                logEntries.removeChild(logEntries.lastChild);
+            }
+        }
+
+        function updateConnectionStatus(status, message) {
+            connectionStatus.className = `connection-status status-${status}`;
+            connectionStatus.textContent = message;
+        }
+
+        async function testConnection() {
+            try {
+                updateConnectionStatus('sending', 'กำลังทดสอบ...');
+                const response = await fetch(`http://${serverIP}:8080/scan`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ barcode: 'TEST' }),
+                    signal: AbortSignal.timeout(5000)
+                });
+                
+                if (response.ok) {
+                    updateConnectionStatus('connected', '✅ เชื่อมต่อสำเร็จ');
+                    addLog('✅ ทดสอบการเชื่อมต่อสำเร็จ', 'success');
+                } else {
+                    throw new Error('Server error');
+                }
+            } catch (error) {
+                updateConnectionStatus('disconnected', '❌ เชื่อมต่อไม่สำเร็จ');
+                addLog(`❌ ไม่สามารถเชื่อมต่อ: ${error.message}`, 'error');
+            }
+        }
+
+        async function sendToServer(barcode) {
+            try {
+                updateConnectionStatus('sending', '📤 กำลังส่ง...');
+                addLog(`📤 กำลังส่ง: ${barcode}`, 'info');
+                
+                const response = await fetch(`http://${serverIP}:8080/scan`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ barcode: barcode }),
+                    signal: AbortSignal.timeout(5000)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    updateConnectionStatus('connected', '✅ ส่งสำเร็จ');
+                    addLog(`✅ ส่งสำเร็จ: ${barcode}`, 'success');
+                    console.log('📡 Server response:', data);
+                } else {
+                    throw new Error('Server returned error');
+                }
+            } catch (error) {
+                updateConnectionStatus('disconnected', '❌ ส่งไม่สำเร็จ');
+                addLog(`❌ ส่งไม่สำเร็จ: ${error.message}`, 'error');
+                console.error('❌ Error:', error);
             }
         }
 
         async function startCamera() {
             try {
-                log('กำลังเปิดกล้อง...');
-                
-                const constraints = [
-                    { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
-                    { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-                    { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } },
-                    { facingMode: 'environment' }
-                ];
-                
-                let stream = null;
-                for (const constraint of constraints) {
-                    try {
-                        stream = await navigator.mediaDevices.getUserMedia({ video: constraint });
-                        log(`ใช้ความละเอียด: ${JSON.stringify(constraint)}`);
-                        break;
-                    } catch (e) {
-                        continue;
-                    }
-                }
-                
-                if (!stream) {
-                    throw new Error('ไม่สามารถเปิดกล้องได้');
-                }
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+                });
                 
                 video.srcObject = stream;
-                videoTrack = stream.getVideoTracks()[0];
-                
-                if (videoTrack.getCapabilities) {
-                    const caps = videoTrack.getCapabilities();
-                    if (caps.torch) {
-                        document.getElementById('torchBtn').style.display = 'inline-block';
-                        log('รองรับไฟฉาย');
-                    }
-                }
-                
                 video.onloadedmetadata = () => {
                     video.play();
-                    log(`กล้องเปิดสำเร็จ: ${video.videoWidth}x${video.videoHeight}`);
                     startScanning();
-                    updateStatus('กำลังสแกน...', 'scanning');
+                    // ทดสอบการเชื่อมต่อตอนเริ่มต้น
+                    setTimeout(testConnection, 1000);
                 };
             } catch (err) {
-                log('Error: ' + err.message);
                 alert('ไม่สามารถเข้าถึงกล้องได้: ' + err.message);
             }
         }
 
-        function toggleTorch() {
-            if (!videoTrack) return;
-            
-            torchEnabled = !torchEnabled;
-            const torchBtn = document.getElementById('torchBtn');
-            
-            videoTrack.applyConstraints({
-                advanced: [{ torch: torchEnabled }]
-            }).then(() => {
-                if (torchEnabled) {
-                    torchBtn.textContent = '💡 ปิดไฟ';
-                    torchBtn.className = 'btn torch-btn torch-on';
-                    log('เปิดไฟฉาย');
-                } else {
-                    torchBtn.textContent = '💡 ไฟฉาย';
-                    torchBtn.className = 'btn torch-btn';
-                    log('ปิดไฟฉาย');
-                }
-            }).catch(err => {
-                log('ไม่สามารถควบคุมไฟฉาย: ' + err.message);
-            });
-        }
-
-        function updateStatus(text, type) {
-            statusDiv.textContent = text;
-            statusDiv.className = 'status-badge status-' + type;
-        }
-
         function startScanning() {
-            if (isScanning) return;
-            isScanning = true;
-            log('เริ่มสแกน...');
-            
-            let scanCount = 0;
-            scanInterval = setInterval(() => {
+            setInterval(() => {
                 if (video.readyState === 4) {
-                    scanCount++;
                     canvas.width = video.videoWidth;
                     canvas.height = video.videoHeight;
                     ctx.drawImage(video, 0, 0);
                     
                     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                     const results = scanBarcodeMultiThreshold(imageData);
-                    
-                    if (scanCount % 10 === 0) {
-                        log(`Scanning... (${scanCount} attempts, ${recentScans.length} in buffer)`);
-                    }
                     
                     if (results.length > 0) {
                         processResults(results);
@@ -581,14 +375,10 @@
         }
 
         function processResults(results) {
-            // เพิ่มผลลัพธ์ใหม่เข้า buffer
             const now = Date.now();
             recentScans.push({ results, time: now });
-            
-            // ลบข้อมูลเก่าที่เกิน 1 วินาที
             recentScans = recentScans.filter(s => now - s.time < 1000);
             
-            // นับคะแนนแต่ละผลลัพธ์
             const votes = {};
             for (const scan of recentScans) {
                 for (const result of scan.results) {
@@ -597,7 +387,6 @@
                 }
             }
             
-            // หาผลลัพธ์ที่ได้คะแนนสูงสุด
             let maxVotes = 0;
             let winner = null;
             for (const [result, count] of Object.entries(votes)) {
@@ -607,15 +396,14 @@
                 }
             }
             
-            // ต้องได้อย่างน้อย 3 คะแนนจึงจะยอมรับ
-            if (winner && maxVotes >= 3) {
-                const confidence = Math.min(100, (maxVotes / recentScans.length) * 100);
-                confidenceFill.style.width = confidence + '%';
+            if (winner && maxVotes >= 3 && winner !== lastScanned) {
+                lastScanned = winner;
+                resultDiv.textContent = winner;
+                sendToServer(winner);
+                recentScans = [];
                 
-                if (winner !== lastScanned || now - lastScanTime > 2000) {
-                    handleScanSuccess(winner, confidence);
-                    lastScanTime = now;
-                    recentScans = []; // ล้าง buffer
+                if (navigator.vibrate) {
+                    navigator.vibrate(200);
                 }
             }
         }
@@ -626,48 +414,35 @@
             const data = imageData.data;
             const allResults = [];
             
-            // สแกนหลายบรรทัด
             const scanLines = [
                 Math.floor(height * 0.50),
                 Math.floor(height * 0.45),
-                Math.floor(height * 0.55),
-                Math.floor(height * 0.40),
-                Math.floor(height * 0.60)
+                Math.floor(height * 0.55)
             ];
             
             for (const scanY of scanLines) {
                 const pixels = [];
                 
-                // อ่านค่า brightness
                 for (let x = 0; x < width; x++) {
                     const idx = (scanY * width + x) * 4;
                     const brightness = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
                     pixels.push(brightness);
                 }
                 
-                // ลองหลาย threshold
                 const avgBrightness = pixels.reduce((a, b) => a + b, 0) / pixels.length;
                 const thresholds = [
                     avgBrightness * 0.7,
                     avgBrightness * 0.8,
-                    avgBrightness * 0.9,
-                    calculateOtsuThreshold(pixels)
+                    avgBrightness * 0.9
                 ];
                 
                 for (const threshold of thresholds) {
-                    if (debugMode && scanY === scanLines[0] && threshold === thresholds[0]) {
-                        drawDebugLine(pixels, threshold);
-                    }
-                    
                     const bars = pixelsToBars(pixels, threshold);
                     
                     if (bars.length >= 20) {
                         const decoded = decodeCode39Strict(bars);
                         if (decoded && decoded.length >= 1) {
                             allResults.push(decoded);
-                            if (debugMode) {
-                                log(`✓ ถอดรหัสได้: ${decoded} (threshold: ${threshold.toFixed(1)})`);
-                            }
                         }
                     }
                 }
@@ -702,244 +477,80 @@
             return bars;
         }
 
-        function calculateOtsuThreshold(pixels) {
-            const histogram = new Array(256).fill(0);
-            pixels.forEach(p => histogram[Math.floor(p)]++);
-            
-            const total = pixels.length;
-            let sum = 0;
-            for (let i = 0; i < 256; i++) {
-                sum += i * histogram[i];
-            }
-            
-            let sumB = 0;
-            let wB = 0;
-            let maxVariance = 0;
-            let threshold = 0;
-            
-            for (let t = 0; t < 256; t++) {
-                wB += histogram[t];
-                if (wB === 0) continue;
-                
-                const wF = total - wB;
-                if (wF === 0) break;
-                
-                sumB += t * histogram[t];
-                
-                const mB = sumB / wB;
-                const mF = (sum - sumB) / wF;
-                
-                const variance = wB * wF * (mB - mF) * (mB - mF);
-                
-                if (variance > maxVariance) {
-                    maxVariance = variance;
-                    threshold = t;
-                }
-            }
-            
-            return threshold;
-        }
+        function decodeCode39Strict(bars) {
+            if (bars.length < 20) return null;
 
-        function drawDebugLine(pixels, threshold) {
-            const dw = debugCanvas.width;
-            const dh = debugCanvas.height;
-            
-            debugCtx.fillStyle = '#f0f0f0';
-            debugCtx.fillRect(0, 0, dw, dh);
-            
-            const step = pixels.length / dw;
-            
-            debugCtx.strokeStyle = '#333';
-            debugCtx.beginPath();
-            for (let x = 0; x < dw; x++) {
-                const idx = Math.floor(x * step);
-                const brightness = pixels[idx];
-                const y = dh - (brightness / 255) * dh;
-                if (x === 0) {
-                    debugCtx.moveTo(x, y);
+            const widths = bars.map(b => b.width).sort((a, b) => a - b);
+            let narrowSum = 0, narrowCount = 0;
+            let wideSum = 0, wideCount = 0;
+            const midpoint = widths[Math.floor(widths.length / 2)];
+
+            for (const w of widths) {
+                if (w < midpoint) {
+                    narrowSum += w;
+                    narrowCount++;
                 } else {
-                    debugCtx.lineTo(x, y);
+                    wideSum += w;
+                    wideCount++;
                 }
             }
-            debugCtx.stroke();
-            
-            const thresholdY = dh - (threshold / 255) * dh;
-            debugCtx.strokeStyle = '#ff0000';
-            debugCtx.setLineDash([5, 5]);
-            debugCtx.beginPath();
-            debugCtx.moveTo(0, thresholdY);
-            debugCtx.lineTo(dw, thresholdY);
-            debugCtx.stroke();
-            debugCtx.setLineDash([]);
-            
-            debugCtx.fillStyle = '#000';
-            for (let x = 0; x < dw; x++) {
-                const idx = Math.floor(x * step);
-                if (pixels[idx] < threshold) {
-                    debugCtx.fillRect(x, dh - 10, 1, 10);
+
+            if (narrowCount === 0 || wideCount === 0) return null;
+
+            const narrowAvg = narrowSum / narrowCount;
+            const wideAvg = wideSum / wideCount;
+            const ratio = wideAvg / narrowAvg;
+
+            if (ratio < 1.8 || ratio > 3.5) return null;
+
+            const threshold = (narrowAvg + wideAvg) / 2;
+            const patterns = [];
+            for (let i = 0; i < bars.length - 8; i++) {
+                const segment = bars.slice(i, i + 9);
+                const pattern = segment.map(b => b.width >= threshold ? '1' : '0').join('');
+                patterns.push({ pattern, index: i });
+            }
+
+            let startIndex = -1;
+            for (let i = 0; i < patterns.length; i++) {
+                if (patternToChar[patterns[i].pattern] === '*') {
+                    startIndex = i;
+                    break;
                 }
             }
-        }
 
- function decodeCode39Strict(bars) {
-    if (bars.length < 20) return null;
+            if (startIndex === -1) return null;
 
-    const widths = bars.map(b => b.width).sort((a, b) => a - b);
-    let narrowSum = 0, narrowCount = 0;
-    let wideSum = 0, wideCount = 0;
-    const midpoint = widths[Math.floor(widths.length / 2)];
+            let decoded = '';
+            let i = startIndex + 1;
 
-    for (const w of widths) {
-        if (w < midpoint) {
-            narrowSum += w;
-            narrowCount++;
-        } else {
-            wideSum += w;
-            wideCount++;
-        }
-    }
+            while (i < patterns.length) {
+                const char = patternToChar[patterns[i].pattern];
+                if (!char) {
+                    i++;
+                    continue;
+                }
 
-    if (narrowCount === 0 || wideCount === 0) return null;
+                if (char === '*') break;
 
-    const narrowAvg = narrowSum / narrowCount;
-    const wideAvg = wideSum / wideCount;
-    const ratio = wideAvg / narrowAvg;
-
-    if (ratio < 1.8 || ratio > 3.5) {
-        if (debugMode) log(`✗ Ratio ผิด: ${ratio.toFixed(2)}`);
-        return null;
-    }
-
-    const threshold = (narrowAvg + wideAvg) / 2;
-    const patterns = [];
-    for (let i = 0; i < bars.length - 8; i++) {
-        const segment = bars.slice(i, i + 9);
-        const pattern = segment.map(b => b.width >= threshold ? '1' : '0').join('');
-        patterns.push({ pattern, index: i });
-    }
-
-    let startIndex = -1;
-    for (let i = 0; i < patterns.length; i++) {
-        if (patternToChar[patterns[i].pattern] === '*') {
-            startIndex = i;
-            break;
-        }
-    }
-
-    if (startIndex === -1) {
-        if (debugMode) log('✗ ไม่พบ START marker');
-        return null;
-    }
-
-    let decoded = '';
-    let i = startIndex + 1;
-    let stopFound = false;
-
-    while (i < patterns.length) {
-        const char = patternToChar[patterns[i].pattern];
-        if (!char) {
-            i++;
-            continue;
-        }
-
-        if (char === '*') {
-            stopFound = true;
-            break;
-        }
-
-        decoded += char;
-        i++;
-        if (decoded.length > 50) break;
-    }
-
-    // 🧩 กรองเฉพาะตัวเลข
-    let digitsOnly = decoded.replace(/[^0-9]/g, '');
-
-    // 🧩 ถ้าเลขเกิน 6 ตัว (เช่น 0000091) และเจอ STOP marker หรือขาดหาย
-    // ให้ตัดเหลือ 6 หลักสุดท้าย แต่ถ้าเลขลงท้าย '1' ที่เกิน ให้ตัดออก
-    if (digitsOnly.length > 6) {
-        // ถ้าตัวท้ายเกินมาเพราะการอ่าน stop pattern
-        if (digitsOnly.endsWith('1')) {
-            digitsOnly = digitsOnly.slice(0, -1);
-        }
-        digitsOnly = digitsOnly.slice(-6);
-    }
-
-    // 🧩 ถ้ายาวน้อยกว่า 6 ก็แสดงเท่าที่มี
-    return digitsOnly || null;
-}
-
-
-
-
-        function handleScanSuccess(data, confidence) {
-            lastScanned = data;
-            
-            resultDiv.innerHTML = data + '<span class="cursor-blink"></span>';
-          sendToServer(data); 
-            const now = new Date();
-            const time = now.toLocaleTimeString('th-TH');
-            history.unshift({ data, time, confidence: confidence.toFixed(0) + '%' });
-            if (history.length > 10) history.pop();
-            updateHistory();
-            
-            showSuccess();
-          
-           // log(`✅ สแกนสำเร็จ: ${data} (confidence: ${confidence.toFixed(0)}%)`);
-            
-            if (navigator.vibrate) {
-                navigator.vibrate(200);
+                decoded += char;
+                i++;
+                if (decoded.length > 50) break;
             }
-        }
 
+            let digitsOnly = decoded.replace(/[^0-9]/g, '');
 
-function sendToServer(barcode) {
-    fetch('http://192.168.1.35:8080/scan', {   // 👈 แก้ IP ตรงนี้
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ barcode: barcode })
-    })
-    .then(res => res.json())
-    .then(data => console.log('📡 ส่งสำเร็จ:', data))
-    .catch(err => console.error('❌ ส่งไม่สำเร็จ:', err));
-}
-
-
-        function showSuccess() {
-            const indicator = document.createElement('div');
-            indicator.className = 'success-indicator success-show';
-            indicator.textContent = '✓ สแกนสำเร็จ';
-            document.body.appendChild(indicator);
-            
-            setTimeout(() => {
-                indicator.remove();
-            }, 800);
-        }
-
-        function updateHistory() {
-            if (history.length === 0) {
-                historyDiv.innerHTML = '<div class="empty-history">ยังไม่มีประวัติการสแกน</div>';
-                return;
+            if (digitsOnly.length > 6) {
+                if (digitsOnly.endsWith('1')) {
+                    digitsOnly = digitsOnly.slice(0, -1);
+                }
+                digitsOnly = digitsOnly.slice(-6);
             }
-            
-            historyDiv.innerHTML = history.map(item => `
-                <div class="history-item">
-                    <div class="history-data">${item.data}</div>
-                    <div class="history-time">⏰ ${item.time} | 📊 ${item.confidence}</div>
-                </div>
-            `).join('');
-        }
 
-        function clearHistory() {
-            history = [];
-            lastScanned = '';
-            recentScans = [];
-            updateHistory();
-            log('ล้างประวัติ');
+            return digitsOnly || null;
         }
 
         window.addEventListener('load', () => {
-            updateHistory();
             startCamera();
         });
     </script>
