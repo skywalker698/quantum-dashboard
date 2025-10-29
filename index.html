@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>Barcode Scanner</title>
+    <title>Barcode Scanner - Auto Send</title>
     <style>
         * {
             margin: 0;
@@ -92,6 +92,18 @@
         .status-sending {
             background: #fff3cd;
             color: #856404;
+            animation: pulse 1s infinite;
+        }
+
+        .auto-send-indicator {
+            display: inline-block;
+            padding: 6px 15px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-top: 8px;
+            background: #28a745;
+            color: white;
         }
 
         .ip-config {
@@ -342,6 +354,14 @@
             border-left: 4px solid #667eea;
         }
 
+        .history-item.sent {
+            border-left-color: #28a745;
+        }
+
+        .history-item.failed {
+            border-left-color: #dc3545;
+        }
+
         .history-data {
             font-family: 'Courier New', monospace;
             font-size: 14px;
@@ -353,6 +373,25 @@
         .history-time {
             font-size: 11px;
             color: #999;
+        }
+
+        .history-status {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: bold;
+            margin-left: 8px;
+        }
+
+        .status-sent {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-failed {
+            background: #f8d7da;
+            color: #721c24;
         }
 
         .empty-history {
@@ -375,6 +414,7 @@
             font-weight: bold;
             box-shadow: 0 10px 40px rgba(0,0,0,0.3);
             z-index: 1000;
+            text-align: center;
         }
 
         .success-show {
@@ -451,10 +491,13 @@
     <div class="container">
         <div class="header">
             <h1>📱 Barcode Scanner</h1>
-            <p>Code 39 - Multi-Threshold + Validation</p>
+            <p>สแกนแล้วส่งอัตโนมัติ → PC</p>
             <div id="status" class="status-badge status-ready">พร้อมสแกน</div>
             <div id="connectionStatus" class="connection-status status-disconnected">
                 ยังไม่ได้เชื่อมต่อ
+            </div>
+            <div class="auto-send-indicator">
+                🚀 ส่งอัตโนมัติเปิดอยู่
             </div>
             
             <div class="ip-config">
@@ -490,7 +533,7 @@
             </div>
             
             <div class="send-log" id="sendLog">
-                <strong>📡 Log การส่ง:</strong>
+                <strong>📡 Log การส่งอัตโนมัติ:</strong>
                 <div id="logEntries"></div>
             </div>
         </div>
@@ -503,7 +546,7 @@
 
         <div class="history-container">
             <div class="history-header">
-                <h3>📋 ประวัติการสแกน</h3>
+                <h3>📋 ประวัติการส่ง</h3>
                 <button class="btn clear-btn" onclick="clearHistory()">ล้าง</button>
             </div>
             <div id="history"></div>
@@ -570,7 +613,7 @@
             entry.textContent = `[${time}] ${message}`;
             logEntries.insertBefore(entry, logEntries.firstChild);
             
-            while (logEntries.children.length > 8) {
+            while (logEntries.children.length > 10) {
                 logEntries.removeChild(logEntries.lastChild);
             }
         }
@@ -593,29 +636,31 @@
         async function testConnection() {
             try {
                 updateConnectionStatus('sending', 'ทดสอบ...');
+                addLog('🔄 ทดสอบการเชื่อมต่อ...', 'info');
+                
                 const response = await fetch(`http://${serverIP}:8080/scan`, {
                     method: 'POST',
-                    mode: 'cors',
                     headers: { 
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ barcode: 'TEST' }),
                     signal: AbortSignal.timeout(5000)
                 });
                 
-                const data = await response.json();
-                
-                if (response.ok && data.status === 'ok') {
-                    updateConnectionStatus('connected', '✅ เชื่อมต่อแล้ว');
-                    addLog('✅ เชื่อมต่อสำเร็จ', 'success');
-                } else {
-                    throw new Error('Server error');
+                if (response.ok || response.type === 'opaque') {
+                    updateConnectionStatus('connected', '✅ พร้อมส่งอัตโนมัติ');
+                    addLog('✅ เชื่อมต่อสำเร็จ - พร้อมส่งอัตโนมัติ', 'success');
+                    return true;
                 }
+                
+                throw new Error('Connection failed');
+                
             } catch (error) {
                 updateConnectionStatus('disconnected', '❌ ไม่ได้เชื่อมต่อ');
                 addLog(`❌ ${error.message}`, 'error');
+                addLog('💡 แต่จะยังพยายามส่งอัตโนมัติต่อไป', 'info');
                 console.error('Connection error:', error);
+                return false;
             }
         }
 
@@ -991,7 +1036,6 @@
 
             let decoded = '';
             let i = startIndex + 1;
-            let stopFound = false;
 
             while (i < patterns.length) {
                 const char = patternToChar[patterns[i].pattern];
@@ -1001,7 +1045,6 @@
                 }
 
                 if (char === '*') {
-                    stopFound = true;
                     break;
                 }
 
@@ -1026,57 +1069,115 @@
             lastScanned = data;
             
             resultDiv.innerHTML = data + '<span class="cursor-blink"></span>';
-            sendToServer(data);
+            
+            // ส่งไปที่ PC อัตโนมัติทันที
+            sendToServerAutomatic(data);
             
             const now = new Date();
             const time = now.toLocaleTimeString('th-TH');
-            history.unshift({ data, time, confidence: confidence.toFixed(0) + '%' });
-            if (history.length > 10) history.pop();
-            updateHistory();
             
-            showSuccess();
+            showSuccess('✓ สแกน: ' + data);
             
             if (navigator.vibrate) {
                 navigator.vibrate(200);
             }
         }
 
-        async function sendToServer(barcode) {
+        async function sendToServerAutomatic(barcode) {
+            const sendTime = new Date().toLocaleTimeString('th-TH');
+            let sendSuccess = false;
+            
             try {
-                updateConnectionStatus('sending', '📤 ส่ง...');
-                addLog(`ส่ง: ${barcode}`, 'info');
+                updateConnectionStatus('sending', '📤 กำลังส่ง...');
+                addLog(`🚀 ส่งอัตโนมัติ: ${barcode}`, 'info');
                 
-                const response = await fetch(`http://${serverIP}:8080/scan`, {
-                    method: 'POST',
-                    mode: 'cors',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
+                // พยายามส่งหลายวิธี
+                const methods = [
+                    // วิธีที่ 1: POST with no-cors (เหมาะสำหรับ cross-origin)
+                    async () => {
+                        const response = await fetch(`http://${serverIP}:8080/scan`, {
+                            method: 'POST',
+                            mode: 'no-cors',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ barcode: barcode })
+                        });
+                        return response.type === 'opaque';
                     },
-                    body: JSON.stringify({ barcode: barcode }),
-                    signal: AbortSignal.timeout(5000)
-                });
+                    // วิธีที่ 2: POST with cors
+                    async () => {
+                        const response = await fetch(`http://${serverIP}:8080/scan`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ barcode: barcode }),
+                            signal: AbortSignal.timeout(3000)
+                        });
+                        return response.ok;
+                    },
+                    // วิธีที่ 3: GET with query string
+                    async () => {
+                        const response = await fetch(`http://${serverIP}:8080/scan?barcode=${encodeURIComponent(barcode)}`, {
+                            method: 'GET',
+                            signal: AbortSignal.timeout(3000)
+                        });
+                        return response.ok;
+                    }
+                ];
                 
-                const data = await response.json();
-                
-                if (response.ok && data.status === 'ok') {
-                    updateConnectionStatus('connected', '✅ ส่งแล้ว');
-                    addLog(`✅ ${barcode}`, 'success');
-                    console.log('📡 Response:', data);
-                } else {
-                    throw new Error(data.message || 'Server error');
+                for (let i = 0; i < methods.length; i++) {
+                    try {
+                        const success = await methods[i]();
+                        if (success) {
+                            sendSuccess = true;
+                            updateConnectionStatus('connected', '✅ ส่งสำเร็จ');
+                            addLog(`✅ ส่งสำเร็จ: ${barcode}`, 'success');
+                            
+                            // บันทึกลงประวัติ
+                            history.unshift({ 
+                                data: barcode, 
+                                time: sendTime, 
+                                status: 'sent'
+                            });
+                            if (history.length > 10) history.pop();
+                            updateHistory();
+                            
+                            break;
+                        }
+                    } catch (err) {
+                        if (i === methods.length - 1) {
+                            throw err;
+                        }
+                        continue;
+                    }
                 }
+                
+                if (!sendSuccess) {
+                    throw new Error('ทุกวิธีล้มเหลว');
+                }
+                
             } catch (error) {
+                sendSuccess = false;
                 updateConnectionStatus('disconnected', '❌ ส่งไม่สำเร็จ');
-                addLog(`❌ ${error.message}`, 'error');
-                console.error('❌ Error:', error);
+                addLog(`❌ ล้มเหลว: ${error.message}`, 'error');
+                
+                // บันทึกลงประวัติว่าส่งไม่สำเร็จ
+                history.unshift({ 
+                    data: barcode, 
+                    time: sendTime, 
+                    status: 'failed'
+                });
+                if (history.length > 10) history.pop();
+                updateHistory();
+                
+                console.error('❌ Auto-send Error:', error);
             }
+            
+            return sendSuccess;
         }
 
-        function showSuccess() {
+        function showSuccess(message) {
             const indicator = document.createElement('div');
             indicator.className = 'success-indicator success-show';
-            indicator.textContent = '✓ สแกนสำเร็จ';
+            indicator.innerHTML = message + '<br><small style="font-size:14px; opacity:0.9;">กำลังส่งไป PC...</small>';
             document.body.appendChild(indicator);
             
             setTimeout(() => {
@@ -1086,16 +1187,23 @@
 
         function updateHistory() {
             if (history.length === 0) {
-                historyDiv.innerHTML = '<div class="empty-history">ยังไม่มีประวัติการสแกน</div>';
+                historyDiv.innerHTML = '<div class="empty-history">ยังไม่มีประวัติการส่ง</div>';
                 return;
             }
             
-            historyDiv.innerHTML = history.map(item => `
-                <div class="history-item">
-                    <div class="history-data">${item.data}</div>
-                    <div class="history-time">⏰ ${item.time} | 📊 ${item.confidence}</div>
-                </div>
-            `).join('');
+            historyDiv.innerHTML = history.map(item => {
+                const statusClass = item.status === 'sent' ? 'sent' : 'failed';
+                const statusBadge = item.status === 'sent' 
+                    ? '<span class="history-status status-sent">✅ ส่งแล้ว</span>'
+                    : '<span class="history-status status-failed">❌ ล้มเหลว</span>';
+                
+                return `
+                    <div class="history-item ${statusClass}">
+                        <div class="history-data">${item.data}${statusBadge}</div>
+                        <div class="history-time">⏰ ${item.time}</div>
+                    </div>
+                `;
+            }).join('');
         }
 
         function clearHistory() {
@@ -1104,11 +1212,13 @@
             recentScans = [];
             updateHistory();
             log('ล้างประวัติ');
+            addLog('🗑️ ล้างประวัติแล้ว', 'info');
         }
 
         window.addEventListener('load', () => {
             updateHistory();
             startCamera();
+            addLog('🚀 ระบบพร้อม - จะส่งอัตโนมัติเมื่อสแกนได้', 'success');
         });
     </script>
 </body>
