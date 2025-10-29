@@ -595,12 +595,18 @@
                 updateConnectionStatus('sending', 'ทดสอบ...');
                 const response = await fetch(`http://${serverIP}:8080/scan`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    mode: 'cors',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
                     body: JSON.stringify({ barcode: 'TEST' }),
-                    signal: AbortSignal.timeout(3000)
+                    signal: AbortSignal.timeout(5000)
                 });
                 
-                if (response.ok) {
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'ok') {
                     updateConnectionStatus('connected', '✅ เชื่อมต่อแล้ว');
                     addLog('✅ เชื่อมต่อสำเร็จ', 'success');
                 } else {
@@ -608,7 +614,8 @@
                 }
             } catch (error) {
                 updateConnectionStatus('disconnected', '❌ ไม่ได้เชื่อมต่อ');
-                addLog(`❌ ตรวจสอบ IP หรือ Firewall`, 'error');
+                addLog(`❌ ${error.message}`, 'error');
+                console.error('Connection error:', error);
             }
         }
 
@@ -1041,19 +1048,23 @@
                 
                 const response = await fetch(`http://${serverIP}:8080/scan`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    mode: 'cors',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
                     body: JSON.stringify({ barcode: barcode }),
-                    signal: AbortSignal.timeout(3000)
+                    signal: AbortSignal.timeout(5000)
                 });
                 
                 const data = await response.json();
                 
-                if (response.ok) {
+                if (response.ok && data.status === 'ok') {
                     updateConnectionStatus('connected', '✅ ส่งแล้ว');
                     addLog(`✅ ${barcode}`, 'success');
                     console.log('📡 Response:', data);
                 } else {
-                    throw new Error('Server error');
+                    throw new Error(data.message || 'Server error');
                 }
             } catch (error) {
                 updateConnectionStatus('disconnected', '❌ ส่งไม่สำเร็จ');
