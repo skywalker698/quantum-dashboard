@@ -638,13 +638,20 @@
                 updateConnectionStatus('sending', 'ทดสอบ...');
                 addLog('🔄 ทดสอบการเชื่อมต่อ...', 'info');
                 
-               
+                const response = await fetch(`http://${serverIP}:8080/scan`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ barcode: 'TEST' }),
+                    signal: AbortSignal.timeout(5000)
+                });
                 
-               if (response.ok || response.type === 'opaque') {
-    updateConnectionStatus('connected', '✅ พร้อมส่งอัตโนมัติ');
-    addLog('✅ เชื่อมต่อสำเร็จ - พร้อมส่งอัตโนมัติ', 'success');
-    return true;
-}
+                if (response.ok || response.type === 'opaque') {
+                    updateConnectionStatus('connected', '✅ พร้อมส่งอัตโนมัติ');
+                    addLog('✅ เชื่อมต่อสำเร็จ - พร้อมส่งอัตโนมัติ', 'success');
+                    return true;
+                }
                 
                 throw new Error('Connection failed');
                 
